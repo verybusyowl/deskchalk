@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>DESKCHALK</title>
+  <link rel="stylesheet" href="/static/v2/owl.css">
+</head>
+<body class="owl-app">
+
+  <!-- Desktop left rail -->
+  <nav class="owl-rail">
+    <a class="owl-rail-logo" href="#" id="logo-link">
+      <img src="/static/v2/owl-mark.svg" alt="DeskChalk" width="34" height="34">
+    </a>
+    <div class="owl-rail-items">
+      <button class="owl-rail-btn is-active" data-view="overview">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Overview</span>
+      </button>
+      <button class="owl-rail-btn" data-view="maps">
+        <i data-lucide="map"></i>
+        <span>Maps</span>
+      </button>
+    </div>
+    <button class="owl-rail-ask" id="ask-open-rail">
+      <i data-lucide="message-square-text"></i>
+      <span>Ask</span>
+    </button>
+  </nav>
+
+  <!-- Mobile sticky top bar -->
+  <header class="owl-topbar">
+    <div style="display:flex;align-items:center;gap:9px">
+      <img src="/static/v2/owl-mark.svg" alt="" width="28" height="28">
+      <span style="font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text-1);letter-spacing:.03em">DESK<span style="color:var(--orange)">.</span>CHALK</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <span id="topbar-elo" style="display:flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:13px;color:var(--orange);display:none">
+        <i data-lucide="flame" style="width:14px;height:14px"></i>
+        <span id="topbar-elo-val"></span>
+      </span>
+      <button class="owl-icon-btn" id="ask-open-top" aria-label="Ask the coach">
+        <i data-lucide="message-square-text"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main content area -->
+  <main class="owl-main">
+    <div id="view-overview"></div>
+    <div id="view-maps" style="display:none"></div>
+  </main>
+
+  <!-- Mobile bottom nav -->
+  <nav class="owl-bottomnav">
+    <button class="owl-bn-btn is-active" data-view="overview">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Overview</span>
+    </button>
+    <button class="owl-bn-btn" data-view="maps">
+      <i data-lucide="map"></i>
+      <span>Maps</span>
+    </button>
+    <button class="owl-bn-btn" id="ask-open-bot" style="color:var(--text-2)">
+      <i data-lucide="message-square-text"></i>
+      <span>Ask</span>
+    </button>
+  </nav>
+
+  <!-- Ask-the-coach slide-over -->
+  <div class="owl-scrim" id="ask-scrim"></div>
+  <aside class="owl-slideover" id="ask-panel" aria-label="Ask the coach">
+    <header class="owl-so-head">
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="/static/v2/owl-mark.svg" width="26" height="26" alt="">
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--fs-md);color:var(--text-1)">Ask the coach</div>
+          <div class="owl-label" style="color:var(--mint)">● Reads your last 20 demos</div>
+        </div>
+      </div>
+      <button class="owl-icon-btn" id="ask-close" aria-label="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </header>
+    <div class="owl-so-body" id="ask-body"></div>
+    <div class="owl-so-suggest" id="ask-suggest">
+      <button class="owl-chip" data-q="What is my biggest weakness right now?">Biggest weakness?</button>
+      <button class="owl-chip" data-q="What should I practice in aim trainer today?">Aim trainer today?</button>
+      <button class="owl-chip" data-q="Explain my untraded-death problem">My untraded deaths</button>
+      <button class="owl-chip" data-q="Give me a one-match focus for tonight">Tonight's focus</button>
+    </div>
+    <footer class="owl-so-foot">
+      <input class="owl-input" id="ask-input" placeholder="Ask about a map, match, or habit…" autocomplete="off">
+      <button class="owl-send" id="ask-send" aria-label="Send">
+        <i data-lucide="arrow-up"></i>
+      </button>
+    </footer>
+  </aside>
+
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script src="/static/v2/owl.js"></script>
+</body>
+</html>

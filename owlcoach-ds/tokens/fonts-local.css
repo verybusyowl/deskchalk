@@ -1,0 +1,22 @@
+/* OWL.COACH webfonts — SELF-HOSTED @font-face rules.
+   Activated by uncommenting the MODE B line in fonts.css.
+   Expects 11 .woff2 files in assets/fonts/ (see assets/fonts/README.md).
+   font-display: swap = text shows immediately in a fallback, then swaps in.
+   If you only have .ttf, change "woff2" → "truetype" and ".woff2" → ".ttf". */
+
+/* ── Chakra Petch — display / numerals / labels ─────────────────── */
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 400; font-display: swap; src: url('../assets/fonts/ChakraPetch-Regular.woff2')  format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 500; font-display: swap; src: url('../assets/fonts/ChakraPetch-Medium.woff2')   format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 600; font-display: swap; src: url('../assets/fonts/ChakraPetch-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'Chakra Petch'; font-style: normal; font-weight: 700; font-display: swap; src: url('../assets/fonts/ChakraPetch-Bold.woff2')     format('woff2'); }
+
+/* ── Barlow — body / coaching prose ─────────────────────────────── */
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 400; font-display: swap; src: url('../assets/fonts/Barlow-Regular.woff2')  format('woff2'); }
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 500; font-display: swap; src: url('../assets/fonts/Barlow-Medium.woff2')   format('woff2'); }
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 600; font-display: swap; src: url('../assets/fonts/Barlow-SemiBold.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow'; font-style: normal; font-weight: 700; font-display: swap; src: url('../assets/fonts/Barlow-Bold.woff2')     format('woff2'); }
+
+/* ── JetBrains Mono — stats / tables / numbers ──────────────────── */
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url('../assets/fonts/JetBrainsMono-Regular.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url('../assets/fonts/JetBrainsMono-Medium.woff2')  format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-style: normal; font-weight: 700; font-display: swap; src: url('../assets/fonts/JetBrainsMono-Bold.woff2')    format('woff2'); }

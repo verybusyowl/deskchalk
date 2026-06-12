@@ -1,0 +1,7 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DeskChalk mark">
+  <!-- chalkboard + chalk check + chalk stub on the tray -->
+  <rect x="20" y="24" width="80" height="58" rx="8" stroke="#D4520A" stroke-width="6"></rect>
+  <polyline points="38,54 52,68 84,36" stroke="#D4520A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"></polyline>
+  <line x1="14" y1="92" x2="106" y2="92" stroke="#D4520A" stroke-width="6" stroke-linecap="round"></line>
+  <line x1="70" y1="92" x2="92" y2="92" stroke="#E8E5D8" stroke-width="10" stroke-linecap="round"></line>
+</svg>

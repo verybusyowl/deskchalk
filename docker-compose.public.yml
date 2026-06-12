@@ -1,0 +1,115 @@
+# DeskChalk — self-contained stack for self-hosters.
+#
+#   git clone … && cd deskchalk
+#   cp .env.example .env      # fill in a FACEIT key + nickname (and an AI key, or use Ollama)
+#   docker compose -f docker-compose.public.yml up -d
+#
+# Everything runs in this one stack — a bundled Postgres, the API/UI, and the
+# optional demo-parsing workers. No external containers or networks required.
+#
+# Maintainers: on release this file becomes the repo's docker-compose.yml.
+# (The repo's docker-compose.yml is the author's NAS config and is gitignored.)
+
+networks:
+  cs2_net:
+    driver: bridge
+
+volumes:
+  cs2_pgdata:
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: deskchalk-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cs2}
+      POSTGRES_USER: ${POSTGRES_USER:-cs2}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cs2}
+    volumes:
+      - cs2_pgdata:/var/lib/postgresql/data
+      # Schema (and lineup seed) auto-applied on first boot only.
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./db/seed_lineups.sql:/docker-entrypoint-initdb.d/02-seed_lineups.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cs2} -d ${POSTGRES_DB:-cs2}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cs2_net]
+
+  app:
+    build: ./app
+    container_name: deskchalk-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_DSN: ${DB_DSN:-postgresql://cs2:cs2@db:5432/cs2}
+      RADARS_DIR: /radars
+    volumes:
+      - ./radars:/radars:ro
+      - ./app/static:/app/static:ro
+      - ./videos:/app/videos
+    ports:
+      - "${APP_PORT:-8086}:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [cs2_net]
+
+  # ── Optional: FACEIT stats poller (lightest data source) ──────────────────
+  faceit-poller:
+    build: ./faceit-poller
+    container_name: deskchalk-faceit-poller
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_DSN: ${DB_DSN:-postgresql://cs2:cs2@db:5432/cs2}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [cs2_net]
+
+  # ── Optional demo pipeline (needs CPU): enable with `--profile demos` ─────
+  poller:
+    build: ./poller
+    container_name: deskchalk-poller
+    restart: unless-stopped
+    profiles: ["demos"]
+    env_file: .env
+    environment:
+      DB_DSN: ${DB_DSN:-postgresql://cs2:cs2@db:5432/cs2}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [cs2_net]
+
+  gc-client:
+    build: ./gc-client
+    container_name: deskchalk-gc-client
+    restart: unless-stopped
+    profiles: ["demos"]
+    env_file: .env
+    volumes:
+      - ./demos:/demos
+    networks: [cs2_net]
+
+  worker:
+    build: ./worker
+    container_name: deskchalk-worker
+    restart: unless-stopped
+    profiles: ["demos"]
+    env_file: .env
+    environment:
+      DB_DSN: ${DB_DSN:-postgresql://cs2:cs2@db:5432/cs2}
+      GC_CLIENT_URL: http://gc-client:3000
+      DEMOS_DIR: /demos
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+    volumes:
+      - ./demos:/demos
+    depends_on:
+      gc-client:
+        condition: service_started
+      db:
+        condition: service_healthy
+    networks: [cs2_net]

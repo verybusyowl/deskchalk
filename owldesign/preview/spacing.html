@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>body{margin:0;background:var(--bg-1);padding:26px 30px}
+.lab{font:var(--label);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);margin-bottom:16px}
+.row{display:flex;gap:20px;align-items:flex-end}
+.bar{background:var(--brand);height:18px;border-radius:2px}
+.cap{font:var(--mono-sm);color:var(--fg-3);margin-top:7px}</style></head>
+<body class="owl">
+<div class="lab">Spacing scale · 4px base grid</div>
+<div class="row" id="r"></div>
+<div style="margin-top:16px;font:var(--body-sm);color:var(--fg-3)">Dense but never cramped — a power-user tool. Card gutters use s-4 / s-6.</div>
+<script>
+const s={1:4,2:8,3:12,4:16,5:20,6:24,8:32,10:40};
+document.getElementById('r').innerHTML=Object.entries(s).map(([k,v])=>
+`<div><div class="bar" style="width:${v}px"></div><div class="cap">s-${k}<br>${v}</div></div>`).join('');
+</script>
+</body></html>

@@ -1,0 +1,74 @@
+/* ── OWL.COACH · COLOR ──────────────────────────────────────────────
+   Dark-first, single theme. A near-black COOL surface ramp carries the
+   whole UI; two brand accents do all the talking:
+     · MINT   #19e59b → brand, wins, improvement, "good / on-target"
+     · ORANGE #ff6a2c → heat, ELO, warnings, regressions, "off-target"
+   Rule of thumb: neutral by default, ONE accent per panel max. Mint and
+   orange should almost never sit adjacent unless explicitly comparing
+   good-vs-bad (e.g. a trend split). See readme COLOR USAGE RULES.
+─────────────────────────────────────────────────────────────────── */
+:root {
+  /* Cool surface ramp — deepest → highest -------------------------- */
+  --bg-0:        #0b0e12;  /* app canvas, the void behind everything   */
+  --bg-1:        #0e1217;  /* base surface / page background           */
+  --surface-1:   #141a21;  /* standard card                            */
+  --surface-2:   #1a212a;  /* raised card, inputs, table header        */
+  --surface-3:   #232c36;  /* hover fill, active rows, top of the ramp */
+  --surface-4:   #2c3742;  /* pressed / selected fill                  */
+
+  /* Hairlines & borders ------------------------------------------- */
+  --line:        rgba(233, 244, 252, 0.08);  /* default 1px divider   */
+  --line-strong: rgba(233, 244, 252, 0.14);  /* emphasised / focus    */
+  --line-faint:  rgba(233, 244, 252, 0.045); /* whisper-thin grid     */
+
+  /* Text — cool off-whites → muted slate -------------------------- */
+  --text-1:      #eef4f8;  /* primary: headings, key numbers          */
+  --text-2:      #9fb1bf;  /* secondary: body, descriptions           */
+  --text-3:      #647483;  /* muted: labels, captions, axis ticks      */
+  --text-4:      #43505c;  /* faint: disabled, placeholder             */
+  --text-on-accent: #07120c; /* dark ink for text ON mint fills       */
+
+  /* Brand · MINT — wins / improvement / on-target ----------------- */
+  --mint:        #19e59b;
+  --mint-bright: #3cffb4;  /* hover / focus highlight                  */
+  --mint-dim:    #12a673;  /* pressed / lower-emphasis                 */
+  --mint-ghost:  rgba(25, 229, 155, 0.12);  /* tint fill              */
+  --mint-line:   rgba(25, 229, 155, 0.34);  /* tint border            */
+  --mint-glow:   rgba(25, 229, 155, 0.45);  /* ring / shadow glow      */
+
+  /* Brand · ORANGE — heat / ELO / warning / regression ------------ */
+  --orange:      #ff6a2c;
+  --orange-bright:#ff8a52;
+  --orange-dim:  #cc4f1c;
+  --orange-ghost:rgba(255, 106, 44, 0.12);
+  --orange-line: rgba(255, 106, 44, 0.34);
+  --orange-glow: rgba(255, 106, 44, 0.42);
+
+  /* Support semantics (used sparingly) ---------------------------- */
+  --warn:        #ffc24b;  /* caution that isn't a regression          */
+  --warn-ghost:  rgba(255, 194, 75, 0.12);
+  --info:        #4aa8ff;  /* neutral data accent, links, ELO charts   */
+  --info-ghost:  rgba(74, 168, 255, 0.12);
+
+  /* FACEIT level badge ramp (1–10) — info only, never decorative --- */
+  --lvl-low:     #6b7785;  /* lvl 1–3   */
+  --lvl-mid:     #ffc24b;  /* lvl 4–7   */
+  --lvl-high:    #ff6a2c;  /* lvl 8–9   */
+  --lvl-max:     #19e59b;  /* lvl 10    */
+
+  /* Semantic aliases — reference these in components --------------- */
+  --good:        var(--mint);
+  --good-ghost:  var(--mint-ghost);
+  --bad:         var(--orange);
+  --bad-ghost:   var(--orange-ghost);
+
+  --page-bg:        var(--bg-1);
+  --surface-card:   var(--surface-1);
+  --surface-raised: var(--surface-2);
+  --surface-hover:  var(--surface-3);
+  --border-card:    var(--line);
+
+  --text-heading:   var(--text-1);
+  --text-body:      var(--text-2);
+  --text-muted:     var(--text-3);
+}

@@ -1,0 +1,44 @@
+/* DeskChalk Design System — Color Tokens
+ * Chalkboard aesthetic: dark green-black canvas, chalk-white text,
+ * burnt-orange chalk accent.
+ */
+:root {
+  /* ── Base Backgrounds — chalkboard green-black ── */
+  --bg-base:     #0E1510;   /* page canvas — dark chalkboard */
+  --bg-surface:  #141E16;   /* cards, panels */
+  --bg-elevated: #1B2720;   /* hover, input fills */
+  --bg-overlay:  #22302A;   /* modals, dropdowns */
+
+  /* ── Borders — muted green-grey ── */
+  --border-subtle:  #1F2E22;
+  --border-default: #2A3D2F;
+  --border-strong:  #3A5040;
+
+  /* ── Text — chalk white ── */
+  --text-primary:   #E8E5D8;   /* warm chalk white */
+  --text-secondary: #9E9D8E;   /* dusty chalk */
+  --text-muted:     #5A5A50;   /* faint chalk residue */
+  --text-inverse:   #0E1510;
+
+  /* ── Accent: Burnt Orange ── */
+  --accent:        #D4520A;
+  --accent-hover:  #E0611C;
+  --accent-active: #BF4608;
+  --accent-subtle: rgba(212, 82, 10, 0.12);
+  --accent-dim:    rgba(212, 82, 10, 0.06);
+
+  /* ── Semantic ── */
+  --success:        #22A047;
+  --success-subtle: rgba(34, 160, 71, 0.12);
+  --error:          #D94040;
+  --error-subtle:   rgba(217, 64, 64, 0.12);
+  --warning:        #D4920A;
+  --warning-subtle: rgba(212, 146, 10, 0.12);
+  --info:           #3A8FD4;
+  --info-subtle:    rgba(58, 143, 212, 0.12);
+
+  /* ── Interactive States ── */
+  --state-hover:    rgba(255, 255, 255, 0.035);
+  --state-active:   rgba(255, 255, 255, 0.055);
+  --state-selected: rgba(212, 82, 10, 0.10);
+}

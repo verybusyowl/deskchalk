@@ -1,0 +1,88 @@
+/* DeskChalk Design System — Base / Reset
+ * Global body styles: chalkboard background, chalk grain texture overlay,
+ * text rendering for chalk-letter feel.
+ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  position: relative;
+  min-height: 100vh;
+}
+
+/* ── Chalk grain overlay ──────────────────────────────────────
+ * SVG fractal noise rendered via data URI, tiled at 200px,
+ * composited in screen mode so it lightens only.
+ * Adjust --chalk-grain-opacity in effects.css to taste.
+ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: screen;
+  opacity: var(--chalk-grain-opacity, 0.038);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+}
+
+/* ── Chalk heading glow ───────────────────────────────────────
+ * Headings get a very faint white diffuse glow — the look of
+ * chalk on a board with ambient light, not a neon effect.
+ */
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  text-shadow: var(--chalk-glow-text);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  line-height: var(--leading-snug);
+}
+
+p {
+  line-height: var(--leading-relaxed);
+  color: var(--text-secondary);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+code, pre, kbd {
+  font-family: var(--font-mono);
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+}

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeskChalk — The CS2 coach that tells you the truth</title>
+<meta name="description" content="A free, open-source, self-hosted CS2 AI coach. One fix per session. Bring your own AI. Your demos never leave your machine.">
+<link rel="icon" href="/static/landing/assets/icon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/landing/styles.css">
+<link rel="stylesheet" href="/static/landing/landing.css">
+<link rel="stylesheet" href="/static/landing/components.css">
+</head>
+<body>
+<div class="lp-wrap">
+
+  <!-- ── Nav ─────────────────────────────────────────────── -->
+  <nav class="lp-nav">
+    <div class="lp-container lp-nav-inner">
+      <a href="#top" style="display:flex;align-items:center">
+        <img src="/static/landing/assets/logo.svg" alt="DeskChalk" height="34">
+      </a>
+      <div class="lp-nav-links">
+        <a class="lp-nav-link" href="#features">Features</a>
+        <a class="lp-nav-link" href="#compare">Compare</a>
+        <a class="lp-nav-link" href="#data">Data</a>
+        <a class="lp-nav-link" href="#install">Install</a>
+      </div>
+      <div class="lp-nav-spacer"></div>
+      <div class="lp-nav-cta">
+        <a class="btn btn-ghost btn-sm" href="https://github.com/verybusyowl/deskchalk">
+          <span class="btn-ico"><i data-lucide="github"></i></span>
+          <span style="font-variant-numeric:tabular-nums">2.4k</span>
+        </a>
+        <form method="POST" action="/auth/steam/stub" style="margin:0">
+          <button type="submit" class="btn btn-secondary btn-sm">Log in</button>
+        </form>
+        <a class="btn btn-primary btn-sm" href="#install">Deploy</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ── Hero ────────────────────────────────────────────── -->
+  <header id="top" class="lp-container lp-hero">
+    <div>
+      <span class="badge">
+        <span class="badge-dot"></span>
+        <span style="color:var(--success)">AGPL-3.0</span>&nbsp;· self-hosted · v0.9
+      </span>
+      <h1>
+        The CS2 coach that<br>tells you the <span class="accent">truth.</span>
+      </h1>
+      <p class="lp-hero-sub">
+        One fix per session. Free, self-hosted, and private — your demos
+        never leave your machine.
+      </p>
+      <div class="lp-hero-cta">
+        <a class="btn btn-primary btn-lg" href="#install">
+          <span class="btn-ico"><i data-lucide="terminal"></i></span>
+          Deploy in 3 lines
+        </a>
+        <a class="btn btn-secondary btn-lg" href="https://github.com/verybusyowl/deskchalk">
+          <span class="btn-ico"><i data-lucide="star"></i></span>
+          Star on GitHub&nbsp;·&nbsp;<span style="color:var(--accent);font-variant-numeric:tabular-nums">2,438</span>
+        </a>
+      </div>
+      <div class="lp-hero-meta">
+        <span><i data-lucide="lock"></i> No account</span>
+        <span><i data-lucide="cloud-off"></i> No cloud</span>
+        <span><i data-lucide="cpu"></i> Runs on a Pi</span>
+      </div>
+    </div>
+
+    <!-- The "real product screenshot" — Today's Focus card -->
+    <div>
+      <div class="card card-elevated card-pad-none" style="overflow:hidden;box-shadow:var(--shadow-xl), inset 0 0 0 1px var(--border-default)">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border-subtle);background:var(--bg-surface)">
+          <img src="/static/landing/assets/icon.svg" alt="" width="18" height="18">
+          <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:var(--tracking-wide);text-transform:uppercase;color:var(--text-secondary)">deskchalk · session 214</span>
+          <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted)">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--success)"></span>
+            LOCAL · 127.0.0.1
+          </span>
+        </div>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <span class="lp-eyebrow" style="margin:0">Today's focus</span>
+            <span class="badge badge-accent"><span class="badge-dot"></span>1 fix</span>
+          </div>
+          <div>
+            <h3 style="font-size:var(--text-2xl);margin:0 0 4px;text-shadow:none">Untraded deaths</h3>
+            <p style="margin:0;font-size:var(--text-sm)">You die alone too often on the T-side execute. Pause for your trade.</p>
+          </div>
+          <!-- StatBar 82% → 55% -->
+          <div class="statbar">
+            <div class="statbar-head">
+              <span class="statbar-label">Untraded deaths</span>
+              <div class="statbar-vals">
+                <span class="statbar-value">82%</span>
+                <span class="statbar-target">&rarr; 55%</span>
+              </div>
+            </div>
+            <div class="statbar-track">
+              <div class="statbar-fill" style="width:82%"></div>
+              <div class="statbar-mark" style="left:55%"></div>
+            </div>
+          </div>
+          <div style="font-family:var(--font-mono);font-size:12px;line-height:1.65;color:var(--text-secondary);padding:12px 14px;background:var(--bg-base);border-radius:var(--radius-sm);box-shadow:inset 0 0 0 1px var(--border-subtle)">
+            <span style="color:var(--accent)">note</span> — On Mirage A, you peeked palace 0.8s before your support. Wait for the flash, then go.
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="badge badge-error">Reverse-Elo: overranked ~1 division</span>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">true rank: <span style="color:var(--text-primary)">LE</span> · badge: DMG</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── 1. Value props ──────────────────────────────────── -->
+  <section class="lp-container lp-section" style="padding-top:0">
+    <div class="lp-grid-3">
+      <div class="card card-pad-lg">
+        <div class="lp-feature-icon" style="margin-bottom:var(--space-4)"><i data-lucide="badge-dollar-sign"></i></div>
+        <h3 style="font-size:var(--text-xl);margin:0 0 var(--space-3);text-shadow:none">Free forever</h3>
+        <p style="margin:0;font-size:var(--text-base)">AGPL-3.0 open source. No tiers, no seats, no trial that expires. Fork it, audit it, ship it.</p>
+      </div>
+      <div class="card card-pad-lg">
+        <div class="lp-feature-icon" style="margin-bottom:var(--space-4)"><i data-lucide="shield-check"></i></div>
+        <h3 style="font-size:var(--text-xl);margin:0 0 var(--space-3);text-shadow:none">100% private</h3>
+        <p style="margin:0;font-size:var(--text-base)">No account. No cloud. No data sale. Your demos and match history stay on your hardware.</p>
+      </div>
+      <div class="card card-pad-lg">
+        <div class="lp-feature-icon" style="margin-bottom:var(--space-4)"><i data-lucide="key-round"></i></div>
+        <h3 style="font-size:var(--text-xl);margin:0 0 var(--space-3);text-shadow:none">Bring your own AI</h3>
+        <p style="margin:0;font-size:var(--text-base)">Plug in a Claude key, or run local Ollama for $0. The model never sees more than you allow.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. Comparison ───────────────────────────────────── -->
+  <section id="compare" class="lp-container lp-section">
+    <p class="lp-eyebrow">The difference</p>
+    <h2 class="lp-h2">How it's different from pureskill.gg</h2>
+    <p class="lp-sub" style="margin-bottom:var(--space-10)">
+      Same goal — get better at CS2. Opposite philosophy on who owns your data and your wallet.
+    </p>
+    <table class="lp-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="col-owl lp-col-owl" style="text-align:center">DeskChalk</th>
+          <th style="text-align:center">Closed SaaS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Open source</th><td class="lp-col-owl"><span class="lp-yes">✓</span></td><td><span class="lp-no">✗</span></td></tr>
+        <tr><th scope="row">Self-hosted</th><td class="lp-col-owl"><span class="lp-yes">✓</span></td><td><span class="lp-no">✗</span></td></tr>
+        <tr><th scope="row">Your data stays local</th><td class="lp-col-owl"><span class="lp-yes">✓</span></td><td><span class="lp-no">✗</span></td></tr>
+        <tr><th scope="row">Bring-your-own-AI</th><td class="lp-col-owl"><span class="lp-yes">✓</span></td><td><span class="lp-no">✗</span></td></tr>
+        <tr><th scope="row">Free</th><td class="lp-col-owl"><span class="lp-yes">✓</span></td><td><span class="lp-no">✗</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ── 3. Features ─────────────────────────────────────── -->
+  <section id="features" class="lp-container lp-section" style="padding-top:0">
+    <p class="lp-eyebrow">What it does</p>
+    <h2 class="lp-h2">Four honest tools. Zero dashboards to babysit.</h2>
+    <p class="lp-sub" style="margin-bottom:var(--space-10)">
+      Every feature exists to change one decision in your next match — not to generate a report you'll never read.
+    </p>
+    <div class="lp-grid-2">
+
+      <div class="card card-pad-lg card-hoverable" style="display:flex;flex-direction:column">
+        <div class="lp-feature-head">
+          <span class="lp-feature-icon"><i data-lucide="crosshair"></i></span>
+          <h3 class="lp-feature-title" style="text-shadow:none">Anti-coach focus loop</h3>
+        </div>
+        <p class="lp-feature-desc">One fix per session, ranked by impact. Master it, then we surface the next. No thirty-tab overwhelm.</p>
+        <div class="lp-feature-mock">
+          <div class="lp-mockbox">
+            <div class="statbar">
+              <div class="statbar-head">
+                <span class="statbar-label">This session's fix</span>
+                <div class="statbar-vals"><span class="statbar-value">82%</span><span class="statbar-target">&rarr; 55%</span></div>
+              </div>
+              <div class="statbar-track">
+                <div class="statbar-fill" style="width:82%"></div>
+                <div class="statbar-mark" style="left:55%"></div>
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px;opacity:0.4">
+              <span class="badge">Spray control</span>
+              <span class="badge">Utility usage</span>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);align-self:center">queued</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-pad-lg card-hoverable" style="display:flex;flex-direction:column">
+        <div class="lp-feature-head">
+          <span class="lp-feature-icon"><i data-lucide="gauge"></i></span>
+          <h3 class="lp-feature-title" style="text-shadow:none">Reverse-Elo honesty score</h3>
+        </div>
+        <p class="lp-feature-desc">Your true skill vs the badge you carry. We tell you when you're overranked — before the demotion does.</p>
+        <div class="lp-feature-mock">
+          <div class="lp-mockbox" style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div class="lp-mocklabel">True rank</div>
+              <div style="font-family:var(--font-mono);font-size:22px;color:var(--text-primary)">LE</div>
+            </div>
+            <i data-lucide="move-right" style="color:var(--text-muted)"></i>
+            <div style="text-align:right">
+              <div class="lp-mocklabel">Your badge</div>
+              <div style="font-family:var(--font-mono);font-size:22px;color:var(--error)">DMG</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-pad-lg card-hoverable" style="display:flex;flex-direction:column">
+        <div class="lp-feature-head">
+          <span class="lp-feature-icon"><i data-lucide="git-compare-arrows"></i></span>
+          <h3 class="lp-feature-title" style="text-shadow:none">What-if simulator</h3>
+        </div>
+        <p class="lp-feature-desc">Quantify a fix before you grind it. We replay your demos against a corrected habit and show the delta.</p>
+        <div class="lp-feature-mock">
+          <div class="lp-mockbox">
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);line-height:1.7">
+              <span style="color:var(--text-muted)">fix</span> counter-strafe<br>
+              <span style="color:var(--success)">&rarr; +3.1</span> rounds won / match
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-pad-lg card-hoverable" style="display:flex;flex-direction:column">
+        <div class="lp-feature-head">
+          <span class="lp-feature-icon"><i data-lucide="activity"></i></span>
+          <h3 class="lp-feature-title" style="text-shadow:none">Tilt detector</h3>
+        </div>
+        <p class="lp-feature-desc">Win-rate decay, slower entries, worse trades. When the numbers say you're done, we say it out loud.</p>
+        <div class="lp-feature-mock">
+          <div class="lp-mockbox" style="display:flex;align-items:center;gap:10px">
+            <i data-lucide="triangle-alert" style="color:var(--error)"></i>
+            <span style="font-family:var(--font-mono);font-size:12px;color:var(--error)">You're decaying — stop queuing.</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── 4. Data sources ─────────────────────────────────── -->
+  <section id="data" class="lp-container lp-section" style="padding-top:0">
+    <p class="lp-eyebrow">Where the data comes from</p>
+    <h2 class="lp-h2">Three ways in. All of them yours.</h2>
+    <p class="lp-sub" style="margin-bottom:var(--space-10)">
+      Pick the friction you're comfortable with. Every path keeps the raw demos on your disk.
+    </p>
+    <div class="lp-grid-3">
+      <div class="card card-pad-lg lp-source">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span class="lp-source-icon"><i data-lucide="zap"></i></span>
+          <span class="badge">Lowest friction</span>
+        </div>
+        <h3 style="font-size:var(--text-lg);margin:var(--space-2) 0 0;text-shadow:none">FACEIT stats</h3>
+        <p style="margin:0;font-size:var(--text-base)">Connect read-only with your FACEIT nickname. Pulls your last 50 matches in seconds.</p>
+      </div>
+      <div class="card card-pad-lg lp-source">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span class="lp-source-icon"><i data-lucide="hash"></i></span>
+          <span class="badge">Official MM</span>
+        </div>
+        <h3 style="font-size:var(--text-lg);margin:var(--space-2) 0 0;text-shadow:none">Steam match codes</h3>
+        <p style="margin:0;font-size:var(--text-base)">Paste sharecodes from matchmaking. We fetch the demos straight from Valve.</p>
+      </div>
+      <div class="card card-pad-lg lp-source">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <span class="lp-source-icon"><i data-lucide="folder-down"></i></span>
+          <span class="badge">Fully offline</span>
+        </div>
+        <h3 style="font-size:var(--text-lg);margin:var(--space-2) 0 0;text-shadow:none">Manual demo drop</h3>
+        <p style="margin:0;font-size:var(--text-base)">Drag a .dem file into the watch folder. Nothing touches the network at all.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 5. Install ──────────────────────────────────────── -->
+  <section id="install" class="lp-container lp-section">
+    <div class="lp-install-grid">
+      <div>
+        <p class="lp-eyebrow">Deploy</p>
+        <h2 class="lp-h2">Three lines. Then open a browser.</h2>
+        <p class="lp-sub" style="margin-bottom:var(--space-6)">
+          No build step, no Kubernetes, no signup. If you can run Docker, you can run DeskChalk.
+        </p>
+        <p class="lp-note">
+          Runs on a <span class="accent">Raspberry Pi</span> or your gaming PC.
+          ~180&nbsp;MB image. Idles near zero.
+        </p>
+        <div style="margin-top:var(--space-8);display:flex;gap:var(--space-3);flex-wrap:wrap">
+          <a class="btn btn-primary btn-md" href="https://github.com/verybusyowl/deskchalk">
+            <span class="btn-ico"><i data-lucide="book-open"></i></span>Read the docs
+          </a>
+          <a class="btn btn-ghost btn-md" href="https://github.com/verybusyowl/deskchalk">
+            <span class="btn-ico"><i data-lucide="github"></i></span>View source
+          </a>
+        </div>
+      </div>
+      <div class="term">
+        <div class="term-chrome">
+          <span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span>
+          <span class="term-chrome-label">bash</span>
+        </div>
+        <div class="term-body">
+          <div class="term-line"><span class="term-txt comment"># clone, configure, launch</span></div>
+          <div class="term-line"><span class="term-pmt">$</span><span class="term-txt">git clone https://github.com/verybusyowl/deskchalk</span></div>
+          <div class="term-line"><span class="term-pmt">$</span><span class="term-txt">cp .env.example .env</span></div>
+          <div class="term-line"><span class="term-pmt">$</span><span class="term-txt">docker compose up -d</span></div>
+          <div class="term-line"><span class="term-txt output">✓ deskchalk up · http://localhost:8080</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 6. Footer ───────────────────────────────────────── -->
+  <footer class="lp-footer">
+    <div class="lp-container">
+      <div class="lp-footer-inner">
+        <div class="lp-footer-col">
+          <img src="/static/landing/assets/logo.svg" alt="DeskChalk" height="36" style="align-self:flex-start">
+          <p style="font-size:var(--text-sm);max-width:260px;margin-top:var(--space-2)">
+            The self-hosted CS2 coach that tells you the truth. Your demos never leave your machine.
+          </p>
+        </div>
+        <div class="lp-footer-col">
+          <h5>Project</h5>
+          <a href="https://github.com/verybusyowl/deskchalk">GitHub</a>
+          <a href="https://github.com/verybusyowl/deskchalk">Docs</a>
+          <a href="https://github.com/verybusyowl/deskchalk">Changelog</a>
+        </div>
+        <div class="lp-footer-col">
+          <h5>Community</h5>
+          <a href="https://discord.gg/deskchalk">Discord</a>
+          <a href="https://github.com/verybusyowl/deskchalk/issues">Issues</a>
+          <a href="https://github.com/verybusyowl/deskchalk/discussions">Discussions</a>
+        </div>
+        <div class="lp-footer-col">
+          <h5>Legal</h5>
+          <a href="https://www.gnu.org/licenses/agpl-3.0.en.html">License · AGPL-3.0</a>
+          <a href="https://github.com/verybusyowl/deskchalk">Privacy (there is none to take)</a>
+        </div>
+      </div>
+      <div class="lp-footer-bottom">
+        <span>© 2026 DeskChalk contributors · AGPL-3.0</span>
+        <span>Not affiliated with Valve or pureskill.gg</span>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+  // Upgrade <i data-lucide> placeholders to SVGs; .lp-ico / explicit sizes handle dimensions.
+  if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.5 } });
+</script>
+</body>
+</html>

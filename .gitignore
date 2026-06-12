@@ -1,0 +1,56 @@
+# Secrets
+.env
+*.env
+
+# Private planning / business notes (never publish)
+*.private.md
+
+# Internal build spec — contains a filled-in .env with live creds. Local only.
+CLAUDE_CODE_SPEC.md
+
+# Host-specific live config (the public stack is docker-compose.public.yml).
+# This is the author's NAS compose (external network + pre-existing postgres).
+docker-compose.yml
+docker-compose.nas.yml
+docker-compose.override.yml
+
+# Demo files (large binary, not source)
+demos/
+videos/
+
+# Radar images SHIP with the repo (heatmaps render on them) — only ignore backups.
+radars_backup_*/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Design artifacts (source is owlcoach-ds/). NOTE: do not blanket-ignore *.png —
+# that would drop radars/ and README/docs screenshots. Ignore the specific files.
+*.zip
+*.xlsx
+/aiagent.png
+/faceitstats.png
+/overview\ laypout.png
+
+# Node (if ever used)
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor/backup junk
+*.bak
+
+# Author-specific monitoring (not part of the public stack)
+grafana/
+
+# Release hand-off bundle
+*.bundle
+
+# Unused radar source assets (app uses the PNGs)
+radars/Simple Radar/

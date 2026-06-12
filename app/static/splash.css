@@ -1,0 +1,242 @@
+/* ── Splash page styles ── */
+
+.splash-body {
+  display: block;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--bg);
+}
+
+/* ── Hero wrapper ── */
+.splash-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* ── Animated gradient background ── */
+.splash-bg-anim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(224,120,40,.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 70%, rgba(78,158,212,.05) 0%, transparent 55%),
+    radial-gradient(ellipse 100% 80% at 50% 10%, rgba(224,120,40,.04) 0%, transparent 50%);
+  animation: bgShift 12s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes bgShift {
+  0%   { opacity: 1; transform: scale(1) translateY(0); }
+  50%  { opacity: 0.7; transform: scale(1.04) translateY(-10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Subtle grid overlay */
+.splash-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(224,120,40,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(224,120,40,.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* ── Header ── */
+.splash-header {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding: 24px 32px;
+  display: flex;
+  align-items: center;
+}
+
+.splash-logo {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--tx);
+}
+
+.splash-logo em {
+  color: var(--orange);
+  font-style: normal;
+}
+
+/* ── Main content ── */
+.splash-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px 60px;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* ── Tagline ── */
+.splash-tagline {
+  font-size: clamp(22px, 4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -.01em;
+  color: var(--tx);
+  margin-bottom: 48px;
+  line-height: 1.2;
+}
+
+/* ── Feature grid 2×2 ── */
+.splash-features {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+  max-width: 640px;
+  margin-bottom: 48px;
+}
+
+.splash-tile {
+  background: var(--sf);
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  padding: 20px 18px;
+  text-align: left;
+  transition: border-color .2s, transform .2s, background .2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.splash-tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(224,120,40,.04), transparent 60%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+
+.splash-tile:hover {
+  border-color: var(--orange);
+  background: var(--sf2);
+  transform: translateY(-3px);
+}
+
+.splash-tile:hover::after {
+  opacity: 1;
+}
+
+.splash-tile-icon {
+  font-size: 22px;
+  margin-bottom: 8px;
+  display: block;
+  line-height: 1;
+}
+
+.splash-tile-name {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--tx);
+  margin-bottom: 6px;
+}
+
+.splash-tile-desc {
+  font-size: 11px;
+  color: var(--mu2);
+  line-height: 1.55;
+}
+
+/* ── CTA form / button ── */
+.splash-cta-form {
+  display: flex;
+  justify-content: center;
+}
+
+.splash-steam-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 2px solid var(--orange);
+  color: var(--tx);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 14px 36px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s, color .2s, transform .15s;
+  box-shadow: 0 0 0 0 rgba(224,120,40,0);
+}
+
+.splash-steam-btn:hover {
+  background: var(--orange-g);
+  box-shadow: 0 0 24px rgba(224,120,40,.35), 0 0 6px rgba(224,120,40,.2);
+  color: var(--orange2);
+  transform: translateY(-2px);
+}
+
+.splash-steam-btn:active {
+  transform: translateY(0);
+}
+
+.steam-icon {
+  flex-shrink: 0;
+  opacity: .85;
+}
+
+/* ── Footer ── */
+.splash-footer {
+  position: relative;
+  z-index: 1;
+  padding: 20px 24px 24px;
+  font-size: 11px;
+  color: var(--mu);
+  letter-spacing: .06em;
+  text-align: center;
+}
+
+/* ── Mobile: single column ── */
+@media (max-width: 520px) {
+  .splash-features {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+  }
+
+  .splash-tile {
+    text-align: left;
+  }
+
+  .splash-tagline {
+    font-size: 22px;
+  }
+
+  .splash-steam-btn {
+    font-size: 13px;
+    padding: 12px 24px;
+  }
+
+  .splash-header {
+    padding: 16px 18px;
+  }
+
+  .splash-main {
+    padding: 24px 16px 48px;
+  }
+}

@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>body{margin:0;background:var(--bg-1);padding:26px 30px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.sw{height:70px;border-radius:var(--r-md);display:flex;flex-direction:column;justify-content:flex-end;padding:9px;gap:3px}
+.sw b{font:700 13px/1 var(--font-display)}.sw span{font:var(--mono-sm)}
+.lab{font:var(--label);letter-spacing:.12em;text-transform:uppercase;color:var(--fg-3);margin-bottom:12px}</style></head>
+<body class="owl">
+<div class="lab">Semantic</div>
+<div class="grid">
+<div class="sw" style="background:var(--win-soft);border:1px solid rgba(25,229,155,.3)"><b style="color:var(--win)">Win</b><span style="color:var(--win)">+ delta</span></div>
+<div class="sw" style="background:var(--loss-soft);border:1px solid rgba(255,59,84,.3)"><b style="color:var(--loss)">Loss</b><span style="color:var(--loss)">− delta</span></div>
+<div class="sw" style="background:var(--warn-soft);border:1px solid rgba(255,194,75,.3)"><b style="color:var(--warn)">Caution</b><span style="color:var(--warn)">mid</span></div>
+<div class="sw" style="background:var(--info-soft);border:1px solid rgba(77,158,255,.3)"><b style="color:var(--info)">Info</b><span style="color:var(--info)">partial</span></div>
+</div>
+<div style="margin-top:14px;font:var(--body-sm);color:var(--fg-3)">Win == brand mint. Loss red, caution amber, info blue (used for "partial stats" notices).</div>
+</body></html>

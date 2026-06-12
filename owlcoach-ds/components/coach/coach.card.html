@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Coach — Focus, Insights, Empty State" subtitle="The verdict hero, ranked fixes, graceful empties" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  body { margin: 0; padding: 22px; background: var(--bg-1); }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .insights { display: flex; flex-direction: column; gap: 8px; }
+  .grp-label { font-family: var(--font-display); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-4); margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="../../_ds_bundle.js"></script>
+<script type="text/babel">
+  const { FocusCard, InsightCard, EmptyState } = window.OWLCOACHDesignSystem_013434;
+  function Demo() {
+    return (
+      <div className="stack">
+        <FocusCard
+          verdict="You're dying untraded far too often."
+          metricValue="71" metricUnit="%" targetLabel="vs 55% target"
+          costLine="A death with no trade hands the enemy a free man-advantage. This is costing you ~3 rounds a half."
+          baseline={82} current={71} target={55} goodDirection="down"
+          drillName="Trade-positioning VOD review" drillDuration="15 min"
+          status="improving" assignedAgo="4 days ago"
+          supporting={[{label:'Trade participation', value:'48%'},{label:'Avg time alone', value:'2.1s'},{label:'Deaths in open', value:'34%'}]}
+        />
+        <div className="insights">
+          <InsightCard rank={1} kind="fix" title="Over-peeking on retakes"
+            detail="You take the first duel on 3 of 4 retakes — let utility land first."
+            metric="64%" delta={-5} goodDirection="up" />
+          <InsightCard rank={2} kind="fix" title="Unused utility at death"
+            detail="Dying with a full kit on 41% of rounds. Throw it or use it before contact."
+            metric="41%" delta={+3} goodDirection="down" />
+          <InsightCard kind="strength" title="Clutch composure"
+            detail="1vX win rate is well above your level — keep trusting it."
+            metric="58%" delta={+9} goodDirection="up" />
+        </div>
+        <EmptyState compact icon={<span style={{fontSize:18}}>◎</span>}
+          title="No heatmap yet"
+          message="Only 2 demos parsed on Vertigo. Play a few more and kill/death zones appear here." />
+      </div>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<Demo />);
+</script>
+</body>
+</html>

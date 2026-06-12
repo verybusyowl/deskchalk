@@ -1,0 +1,21 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OWL.COACH owl mark">
+  
+  <defs>
+    <linearGradient id="owlMint" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3cffb4"></stop>
+      <stop offset="1" stop-color="#19e59b"></stop>
+    </linearGradient>
+  </defs>
+  
+  <path d="M16 44 C16 24, 38 14, 60 26 C82 14, 104 24, 104 44" stroke="url(#owlMint)" stroke-width="7" stroke-linecap="round" fill="none"></path>
+  
+  <circle cx="42" cy="62" r="20" stroke="#eef4f8" stroke-width="6" fill="none"></circle>
+  <circle cx="42" cy="62" r="6.5" fill="url(#owlMint)"></circle>
+  
+  <circle cx="78" cy="62" r="20" stroke="#eef4f8" stroke-width="6" fill="none"></circle>
+  <circle cx="78" cy="62" r="6.5" fill="url(#owlMint)"></circle>
+  
+  <path d="M60 70 L53 86 C56 90, 64 90, 67 86 Z" fill="#ff6a2c"></path>
+  
+  <line x1="60" y1="50" x2="60" y2="58" stroke="#647483" stroke-width="3" stroke-linecap="round"></line>
+</svg>

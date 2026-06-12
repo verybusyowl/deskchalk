@@ -1,0 +1,25 @@
+<!-- @dsCard group="Colors" viewport="700x150" name="Text & semantic" subtitle="Cool off-white → slate · good/bad/warn/info" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles.css">
+<style>
+  body{margin:0;padding:20px;background:var(--bg-1);display:flex;gap:32px}
+  .col{display:flex;flex-direction:column;gap:10px}
+  .cap{font-family:var(--font-display);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-4);margin-bottom:2px}
+  .line{display:flex;align-items:center;gap:10px;font-family:var(--font-body);font-size:14px}
+  .dot{width:14px;height:14px;border-radius:4px}
+  .mono{font-family:var(--font-mono);font-size:11px;color:var(--text-4)}
+</style></head><body>
+<div class="col">
+  <span class="cap">Text ramp</span>
+  <span class="line" style="color:var(--text-1)">text-1 — headings & key numbers <span class="mono">#eef4f8</span></span>
+  <span class="line" style="color:var(--text-2)">text-2 — body & descriptions <span class="mono">#9fb1bf</span></span>
+  <span class="line" style="color:var(--text-3)">text-3 — labels & captions <span class="mono">#647483</span></span>
+  <span class="line" style="color:var(--text-4)">text-4 — faint / disabled <span class="mono">#43505c</span></span>
+</div>
+<div class="col">
+  <span class="cap">Semantic</span>
+  <span class="line" style="color:var(--text-2)"><span class="dot" style="background:var(--mint)"></span> good / improvement <span class="mono">#19e59b</span></span>
+  <span class="line" style="color:var(--text-2)"><span class="dot" style="background:var(--orange)"></span> bad / regression <span class="mono">#ff6a2c</span></span>
+  <span class="line" style="color:var(--text-2)"><span class="dot" style="background:var(--warn)"></span> warn / caution <span class="mono">#ffc24b</span></span>
+  <span class="line" style="color:var(--text-2)"><span class="dot" style="background:var(--info)"></span> info / neutral data <span class="mono">#4aa8ff</span></span>
+</div>
+</body></html>

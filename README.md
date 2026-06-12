@@ -1,0 +1,117 @@
+<div align="center">
+
+# ✏️ DeskChalk
+
+**The CS2 coach that tells you the truth.**
+
+A free, open-source, self-hosted Counter-Strike 2 AI coach.
+One fix per session. Bring your own AI. Your demos never leave your machine.
+
+[Quickstart](#quickstart) · [Why DeskChalk](#how-its-different-from-pureskillgg) · [Data sources](#data-sources) · [AI providers](#ai-providers) · [License](#license)
+
+</div>
+
+---
+
+DeskChalk analyzes your CS2 matches and gives you **one thing to fix** before your next session — not thirty dashboards you'll never read. It runs entirely on your own hardware (a NAS, a Raspberry Pi, or your gaming PC), connects to the AI of your choice (Claude or a local Ollama model), and keeps every demo and stat on your disk.
+
+It's the privacy-respecting, self-hostable alternative to closed coaching SaaS — *the Plausible/Umami to their Google Analytics.*
+
+## Why
+
+- **Free forever** — AGPL-3.0 open source. No tiers, no seats, no trial that expires.
+- **100% private** — no account, no cloud, no data sale. Your match history stays on your hardware.
+- **Bring your own AI** — plug in a Claude key, or run a local Ollama model for $0.
+- **Runs anywhere Docker does** — a Pi, an old NAS, or your gaming rig.
+
+## How it's different from pureskill.gg
+
+| | DeskChalk | Closed coaching SaaS |
+|---|:---:|:---:|
+| Open source | ✓ | ✗ |
+| Self-hosted | ✓ | ✗ |
+| Your data stays local | ✓ | ✗ |
+| Bring-your-own-AI | ✓ | ✗ |
+| Free | ✓ | ✗ |
+
+## Quickstart
+
+```bash
+git clone https://github.com/verybusyowl/deskchalk
+cd deskchalk
+cp .env.example .env          # add a FACEIT key + nickname, and an AI key (or use Ollama)
+docker compose -f docker-compose.public.yml up -d
+```
+
+Then open **http://localhost:8086**.
+
+The default stack runs the web UI, a bundled Postgres, and the FACEIT poller — light enough for a Raspberry Pi. To enable the heavier Steam demo-parsing pipeline (needs real CPU):
+
+```bash
+docker compose -f docker-compose.public.yml --profile demos up -d
+```
+
+> **Maintainer note:** on a public release this repo ships `docker-compose.public.yml` as `docker-compose.yml`, so the install is a plain `docker compose up -d`.
+
+## Data sources
+
+Pick whichever friction you're comfortable with — every path keeps the raw demos on your disk.
+
+| Source | Setup | Notes |
+|---|---|---|
+| **FACEIT stats** | `FACEIT_API_KEY` + `FACEIT_NICKNAME` in `.env` | Lowest friction. Read-only, no demos. Pulls your recent matches in seconds. |
+| **Steam matchmaking** | `STEAM_*` vars + `--profile demos` | Official MM. Fetches demos from Valve via a dedicated bot account. |
+| **Manual demo drop** | drop a `.dem` into `./demos` + `--profile demos` | Fully offline — nothing touches the network. |
+
+Get a FACEIT server-side key at <https://developers.faceit.com/> → Apps.
+
+## AI providers
+
+Set `LLM_PROVIDER` in `.env`:
+
+**Claude (Anthropic)** — best quality. Get a key at <https://console.anthropic.com/settings/keys>:
+```env
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+CLAUDE_MODEL=claude-opus-4-8
+```
+
+**Ollama (local, free, private)** — runs on your own machine, no API cost, no data leaves the box:
+```env
+LLM_PROVIDER=ollama
+LLM_BASE_URL=http://host.docker.internal:11434
+LLM_MODEL=llama3.1
+```
+```bash
+ollama serve && ollama pull llama3.1
+```
+
+The provider is pluggable (see [`app/llm.py`](app/llm.py)) — OpenAI-compatible backends slot in with minimal work.
+
+## What it does
+
+- **Anti-coach focus loop** — one prioritized fix per session, with a drill to fix it.
+- **AI coach + map fundamentals** — ask questions, get map-specific guidance grounded in your own stats.
+- **Discord recaps** *(optional)* — session summaries to a webhook.
+
+> Some features shown on the landing page (reverse-Elo honesty score, what-if simulator, tilt detector) are on the roadmap and not yet implemented.
+
+## Requirements
+
+- Docker + Docker Compose.
+- The demo-parsing worker uses `demoparser2` (CPU-bound) — only needed for the `demos` profile.
+
+## Troubleshooting
+
+- **First screen says "Welcome to DeskChalk / connect…"** — expected on a fresh install. Set an AI provider and a data source in `.env`, then `docker compose up -d` and reload. The setup screen clears once both are connected.
+- **Heatmaps render on a blank grid** — the `radars/` images ship with the repo and mount read-only into the app. Confirm `radars/` isn't empty and that `RADARS_DIR` is mounted.
+- **App can't connect to the database / password authentication failed** — Postgres only applies `POSTGRES_PASSWORD` on the **first** boot of an empty volume. If you changed DB credentials after the first run, reset the volume: `docker compose down -v && docker compose up -d` (this wipes local data).
+- **`env file .env not found`** — run `cp .env.example .env` first.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[AGPL-3.0](LICENSE). The network-copyleft terms mean any hosted fork must also publish its source — chosen deliberately so DeskChalk can't be relaunched as a closed SaaS. Not affiliated with Valve or pureskill.gg.

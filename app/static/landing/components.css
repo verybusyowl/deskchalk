@@ -1,0 +1,147 @@
+/* DeskChalk Landing — component classes
+ * Static-HTML ports of the design system's React primitives
+ * (Button / Badge / Card / StatBar / Terminal). Visuals come from tokens.
+ */
+
+/* ── Button ─────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1;
+  user-select: none;
+  position: relative;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.btn-sm { font-size: 10px; padding: 6px 12px; }
+.btn-md { font-size: 11px; padding: 10px 20px; }
+.btn-lg { font-size: 12px; padding: 14px 28px; }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+.btn-secondary { background: transparent; color: var(--text-primary); border-color: var(--border-strong); }
+.btn-secondary:hover { background: var(--state-hover); border-color: var(--text-muted); color: var(--text-primary); }
+.btn-ghost { background: transparent; color: var(--text-secondary); border-color: transparent; }
+.btn-ghost:hover { background: var(--state-hover); color: var(--text-primary); }
+.btn .btn-ico { display: flex; align-items: center; }
+
+/* ── Badge ──────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+}
+.badge-accent { background: var(--accent-subtle); color: var(--accent); border-color: var(--accent); }
+.badge-error  { background: var(--error-subtle);  color: var(--error);  border-color: var(--error); }
+.badge .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* ── Card ───────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--inset-border);
+  position: relative;
+  transition: box-shadow var(--transition-normal);
+}
+.card-pad-md   { padding: 24px; }
+.card-pad-lg   { padding: 32px; }
+.card-pad-none { padding: 0; }
+.card-elevated { background: var(--bg-elevated); box-shadow: var(--shadow-md); }
+.card-hoverable:hover { box-shadow: inset 0 0 0 1px var(--border-strong), var(--shadow-md); }
+
+/* ── StatBar ────────────────────────────────────────────────── */
+.statbar { display: flex; flex-direction: column; gap: 6px; }
+.statbar-head { display: flex; justify-content: space-between; align-items: baseline; }
+.statbar-label {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);
+  letter-spacing: var(--tracking-wider); text-transform: uppercase;
+}
+.statbar-vals { display: flex; align-items: baseline; gap: 6px; margin-left: auto; }
+.statbar-value {
+  font-family: var(--font-mono); font-size: var(--text-lg);
+  font-weight: var(--weight-semibold); color: var(--text-primary);
+}
+.statbar-target { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-muted); }
+.statbar-track {
+  height: 5px; background: var(--bg-elevated);
+  border-radius: var(--radius-xs); position: relative;
+}
+.statbar-fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--accent); border-radius: var(--radius-xs);
+}
+.statbar-mark {
+  position: absolute; top: -3px; width: 1px; height: 11px;
+  background: var(--success); transform: translateX(-50%);
+}
+
+/* ── Terminal ───────────────────────────────────────────────── */
+.term {
+  background: var(--bg-base);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 0 0 1px var(--border-default), var(--shadow-md);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.term-chrome {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+.term-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); }
+.term-chrome-label {
+  margin-left: auto; font-size: 10px; color: var(--text-muted);
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
+}
+.term-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; }
+.term-line { display: flex; gap: 10px; line-height: 1.6; }
+.term-pmt { color: var(--accent); user-select: none; flex-shrink: 0; }
+.term-txt { color: var(--text-primary); }
+.term-txt.comment { color: var(--text-muted); font-style: italic; }
+.term-txt.output  { color: var(--text-muted); padding-left: 20px; }
+
+/* ── Feature / mock helpers (inline-style ports from the kit) ── */
+.lp-mockbox {
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  padding: 16px 18px;
+}
+.lp-mocklabel {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: var(--tracking-wide); text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 4px;
+}
+
+/* ── Lucide icon sizing ──────────────────────────────────────
+ * createIcons() renders <svg class="lucide …">. The kit sized icons
+ * per-context via a wrapper; here we size the rendered svg by context.
+ */
+svg.lucide { width: 20px; height: 20px; display: block; flex-shrink: 0; }
+.btn-sm svg.lucide { width: 15px; height: 15px; }
+.btn-md svg.lucide, .btn-lg svg.lucide { width: 16px; height: 16px; }
+.lp-hero-meta svg.lucide { width: 13px; height: 13px; }
+.lp-feature-icon svg.lucide { width: 20px; height: 20px; }
+.lp-source-icon svg.lucide { width: 22px; height: 22px; }
+.lp-mockbox svg.lucide { width: 18px; height: 18px; }

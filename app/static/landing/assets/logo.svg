@@ -1,0 +1,10 @@
+<svg width="200" height="40" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- DeskChalk placeholder logo: chalkboard mark + wordmark -->
+  <rect x="6" y="8" width="28" height="20" rx="3" stroke="#D4520A" stroke-width="1.5"></rect>
+  <polyline points="14,18 19,23 28,12" stroke="#D4520A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+  <line x1="4" y1="31" x2="36" y2="31" stroke="#D4520A" stroke-width="1.5" stroke-linecap="round"></line>
+  <line x1="22" y1="31" x2="30" y2="31" stroke="#D4520A" stroke-width="3" stroke-linecap="round"></line>
+
+  <text x="50" y="18" font-family="Space Grotesk, system-ui, sans-serif" font-size="12" font-weight="700" fill="#D4520A" letter-spacing="3">DESK</text>
+  <text x="50" y="32" font-family="Space Grotesk, system-ui, sans-serif" font-size="12" font-weight="400" fill="#EAEAE8" letter-spacing="3">CHALK</text>
+</svg>
