@@ -92,6 +92,13 @@ services:
     env_file: .env
     volumes:
       - ./demos:/demos
+    healthcheck:
+      # /health returns 503 until the Game Coordinator is connected.
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
     networks: [cs2_net]
 
   worker:
