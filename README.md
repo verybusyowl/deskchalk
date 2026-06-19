@@ -53,6 +53,23 @@ docker compose -f docker-compose.public.yml --profile demos up -d
 
 > **Maintainer note:** on a public release this repo ships `docker-compose.public.yml` as `docker-compose.yml`, so the install is a plain `docker compose up -d`.
 
+## Container engines
+
+DeskChalk is plain OCI containers + a standard Compose file, so it runs on any of these — pick whichever you already have. The commands are interchangeable:
+
+| Engine | Up | Down |
+|---|---|---|
+| **Docker** | `docker compose -f docker-compose.public.yml up -d` | `docker compose -f docker-compose.public.yml down` |
+| **Podman** (rootless, daemonless) | `podman compose -f docker-compose.public.yml up -d` | `podman compose -f docker-compose.public.yml down` |
+| **nerdctl** (containerd) | `nerdctl compose -f docker-compose.public.yml up -d` | `nerdctl compose -f docker-compose.public.yml down` |
+
+The `--profile demos` flag works the same on all three.
+
+**Podman / nerdctl notes:**
+- **Podman compose:** Podman 4.1+ ships `podman compose`; on older versions install `podman-compose` and use that command instead.
+- **Local Ollama:** Docker reaches the host at `host.docker.internal`; on Podman use `host.containers.internal` (set `LLM_BASE_URL=http://host.containers.internal:11434`). On nerdctl, add `--add-host=host.docker.internal:host-gateway` or use the host IP.
+- **Rootless:** the default port `8086` is unprivileged, so rootless Podman/nerdctl work out of the box.
+
 ## Data sources
 
 Pick whichever friction you're comfortable with — every path keeps the raw demos on your disk.
@@ -127,8 +144,33 @@ The provider layer lives in [`app/llm.py`](app/llm.py) — all of the above shar
 
 ## Requirements
 
-- Docker + Docker Compose.
+- A container engine with Compose support: **Docker**, **Podman**, or **nerdctl/containerd** (see [Container engines](#container-engines)).
+- `git` to clone the repo.
 - The demo-parsing worker uses `demoparser2` (CPU-bound) — only needed for the `demos` profile.
+
+### Installing a container engine
+
+DeskChalk itself isn't a system package — you install an engine with your package manager, then `git clone` and run the Compose file above. Pick **Docker** *or* **Podman**:
+
+| Distro | Docker | Podman |
+|---|---|---|
+| **Debian / Ubuntu** (`apt`) | `sudo apt install docker.io docker-compose-v2` | `sudo apt install podman podman-compose` |
+| **Fedora** (`dnf`) | `sudo dnf install docker-ce docker-compose-plugin` | `sudo dnf install podman podman-compose` |
+| **RHEL / CentOS / Rocky** (`yum`) | `sudo yum install docker-ce docker-compose-plugin` | `sudo yum install podman podman-compose` |
+| **Arch / Manjaro** (`pacman`) | `sudo pacman -S docker docker-compose` | `sudo pacman -S podman podman-compose` |
+| **openSUSE** (`zypper`) | `sudo zypper install docker docker-compose` | `sudo zypper install podman podman-compose` |
+| **Alpine** (`apk`) | `sudo apk add docker docker-cli-compose` | `sudo apk add podman podman-compose` |
+
+After installing Docker you may need `sudo systemctl enable --now docker` and to add yourself to the `docker` group. For the authoritative steps, see [docs.docker.com/engine/install](https://docs.docker.com/engine/install/) or [podman.io/docs/installation](https://podman.io/docs/installation). **nerdctl** is in some distro repos (e.g. `pacman -S nerdctl`); otherwise grab the static binary from the [nerdctl releases](https://github.com/containerd/nerdctl/releases).
+
+Then:
+
+```bash
+git clone https://github.com/verybusyowl/deskchalk
+cd deskchalk
+cp .env.example .env
+docker compose -f docker-compose.public.yml up -d   # or: podman compose / nerdctl compose
+```
 
 ## Troubleshooting
 
