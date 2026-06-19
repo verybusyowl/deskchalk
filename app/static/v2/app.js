@@ -21,7 +21,7 @@ const METRIC_UNIT = { pct: '%', ms: 'ms', deg: '°' };
 
 const S = {
   view: 'overview',
-  map: localStorage.getItem('owl_last_map') || null,
+  map: localStorage.getItem('dc_last_map') || null,
   cache: {},
 };
 
@@ -130,10 +130,10 @@ function statCard(label, value, unit, delta, goodDir, spark) {
   const sparkTone = delta == null ? 'neutral' : (goodDir === 'up' ? (delta >= 0 ? 'good' : 'bad') : (delta <= 0 ? 'good' : 'bad'));
   return card(`
     <div class="o-statcard">
-      <div class="owl-label" style="color:var(--text-3)">${esc(label)}</div>
+      <div class="dc-label" style="color:var(--text-3)">${esc(label)}</div>
       <div class="o-statcard-row">
         <div style="display:flex;align-items:baseline;gap:2px">
-          <span class="owl-stat" style="font-size:var(--fs-2xl);color:var(--text-1)">${esc(value)}</span>
+          <span class="dc-stat" style="font-size:var(--fs-2xl);color:var(--text-1)">${esc(value)}</span>
           ${unit ? `<span style="font-family:var(--font-display);font-size:var(--fs-md);color:var(--text-3);font-weight:600">${esc(unit)}</span>` : ''}
         </div>
         ${sparklineSVG(spark, sparkTone)}
@@ -163,9 +163,9 @@ function eloRingHTML(id, elo, level, progress, size = 76) {
         style="filter:drop-shadow(0 0 6px var(--orange-glow))"/>
     </svg>
     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px">
-      <span class="owl-label" style="color:var(--text-3);font-size:9px">ELO</span>
-      <span class="owl-stat elo-num" style="font-size:${Math.round(size * 0.27)}px;color:var(--text-1)">0</span>
-      <span class="owl-label" style="color:var(--orange);font-size:9px">LVL ${level}</span>
+      <span class="dc-label" style="color:var(--text-3);font-size:9px">ELO</span>
+      <span class="dc-stat elo-num" style="font-size:${Math.round(size * 0.27)}px;color:var(--text-1)">0</span>
+      <span class="dc-label" style="color:var(--orange);font-size:9px">LVL ${level}</span>
     </div>
   </div>`;
 }
@@ -213,7 +213,7 @@ function baselineProgressHTML(baseline, current, target, unit, goodDir) {
 
   return `<div class="o-bp">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
-      <span class="owl-label">vs baseline</span>
+      <span class="dc-label">vs baseline</span>
       <span style="font-family:var(--font-mono);font-size:var(--fs-xs);color:${accent};font-weight:600">
         ${improving ? '−' : '+'} ${fmt(Math.abs(improvedAmt)).replace(unit,'')}${unit} ${improving ? 'closer' : 'further'}
       </span>
@@ -245,7 +245,7 @@ function emptyStateHTML(icon, title, msg, action = '', compact = false) {
 
 async function loadOverview() {
   const el = document.getElementById('view-overview');
-  el.innerHTML = `<div class="owl-page"><div class="o-loading">Loading…</div></div>`;
+  el.innerHTML = `<div class="dc-page"><div class="o-loading">Loading…</div></div>`;
 
   try {
     const [overview, focusData, brief, profile] = await Promise.all([
@@ -322,10 +322,10 @@ async function loadOverview() {
       <img src="${esc(profile.avatar_url || '')}" alt="" onerror="this.parentElement.innerHTML='<span style=font-size:16px>${esc((profile.name||'?')[0])}</span>'">
     </div>`;
 
-    el.innerHTML = `<div class="owl-page">
+    el.innerHTML = `<div class="dc-page">
 
       <!-- Page header -->
-      <div class="owl-page-head">
+      <div class="dc-page-head">
         <div>
           <h1 style="font-size:var(--fs-2xl)">Overview</h1>
           <p style="color:var(--text-3);font-size:var(--fs-sm);margin-top:2px">One thing to fix, with the proof. Updated after every match.</p>
@@ -336,22 +336,22 @@ async function loadOverview() {
       </div>
 
       <!-- Identity bar -->
-      <div class="owl-identity">
+      <div class="dc-identity">
         <div style="display:flex;align-items:center;gap:14px;min-width:0">
           ${avatarHtml}
           <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
             <span style="font-family:var(--font-display);font-weight:700;font-size:var(--fs-lg);color:var(--text-1)">${esc(profile.name || 'Player')}</span>
             <div style="display:flex;align-items:center;gap:8px">
               ${levelBadge(level, 'sm')}
-              <span class="owl-label" style="color:var(--text-3)">${esc(profile.role || 'Solo queue')}</span>
+              <span class="dc-label" style="color:var(--text-3)">${esc(profile.role || 'Solo queue')}</span>
             </div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:22px">
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            <span class="owl-label" style="color:var(--text-4)">ELO · trend</span>
+            <span class="dc-label" style="color:var(--text-4)">ELO · trend</span>
             <span style="display:flex;align-items:center;gap:7px">
-              <span class="owl-num" style="font-size:var(--fs-md);color:var(--text-2)">${elo}</span>
+              <span class="dc-num" style="font-size:var(--fs-md);color:var(--text-2)">${elo}</span>
               ${eloDelta != null ? trendBadge(eloDelta, 'up') : ''}
             </span>
           </div>
@@ -362,18 +362,18 @@ async function loadOverview() {
       <!-- Focus card — THE HERO -->
       <div class="o-card o-card--strong" style="overflow:hidden;padding:0">
         <div style="height:3px;background:${accentColor}"></div>
-        <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)" class="owl-focus-grid">
+        <div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)" class="dc-focus-grid">
 
           <!-- Left: verdict + proof -->
           <div style="padding:var(--space-6);display:flex;flex-direction:column;gap:var(--space-4)">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <span class="owl-label" style="color:${accentColor}">● Today's Focus</span>
+              <span class="dc-label" style="color:${accentColor}">● Today's Focus</span>
               ${statusBadge}
               <span style="font-size:var(--fs-2xs);color:var(--text-4);font-family:var(--font-body)">assigned ${relTime(focus.assigned_at)}</span>
             </div>
             <h2 style="font-size:var(--fs-2xl);line-height:1.15;text-wrap:balance">${esc(focus.label || 'No focus assigned')}</h2>
             <div style="display:flex;align-items:flex-end;gap:14px">
-              <span class="owl-stat" style="font-size:var(--fs-4xl);color:${accentColor};line-height:0.9">
+              <span class="dc-stat" style="font-size:var(--fs-4xl);color:${accentColor};line-height:0.9">
                 ${fmtNum(current, 1)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600">${esc(unit)}</span>
               </span>
               ${threshold != null ? `<span style="font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--text-3);padding-bottom:8px">vs ${threshold}${unit} target</span>` : ''}
@@ -382,12 +382,12 @@ async function loadOverview() {
           </div>
 
           <!-- Right: progress + drill -->
-          <div style="padding:var(--space-6);background:var(--surface-2);border-left:1px solid var(--line);display:flex;flex-direction:column;gap:var(--space-5);justify-content:space-between" class="owl-focus-side">
+          <div style="padding:var(--space-6);background:var(--surface-2);border-left:1px solid var(--line);display:flex;flex-direction:column;gap:var(--space-5);justify-content:space-between" class="dc-focus-side">
             ${focus.baseline != null && current != null && threshold != null
               ? baselineProgressHTML(focus.baseline, current, threshold, unit, goodDir)
               : ''}
             <div style="display:flex;flex-direction:column;gap:10px">
-              <span class="owl-label" style="color:var(--text-3)">The drill</span>
+              <span class="dc-label" style="color:var(--text-3)">The drill</span>
               ${drillHtml ? `<p class="o-drill-text">${drillHtml}</p>` : ''}
               ${btn('<i data-lucide="arrow-right" style="width:14px;height:14px"></i> New focus', 'ghost', 'sm', 'id="focus-refresh"')}
             </div>
@@ -399,7 +399,7 @@ async function loadOverview() {
       <!-- Stats proof -->
       <div>
         ${sectionLabel('Overall · recent 10 matches')}
-        <div class="owl-stats-grid">
+        <div class="dc-stats-grid">
           ${statCard('K / D', fmtNum(kpis.kd,2), '', kdDelta, 'up', kdSpark)}
           ${statCard('ADR', fmtNum(kpis.adr,1), '', adrDelta, 'up', adrSpark)}
           ${statCard('Win %', fmtNum(kpis.win_pct,0), '%', wrDelta, 'up', wrSpark)}
@@ -408,7 +408,7 @@ async function loadOverview() {
       </div>
 
       <!-- Bench + context -->
-      <div class="owl-two-col">
+      <div class="dc-two-col">
 
         <!-- Left: coach brief -->
         <div>
@@ -422,7 +422,7 @@ async function loadOverview() {
         <div style="display:flex;flex-direction:column;gap:var(--space-5)">
           ${card(`${sectionLabel('ELO trend')}${eloChartHtml}`)}
           ${card(formHtml)}
-          ${card(`${sectionLabel('Map strength', `<button class="owl-link" id="maps-link">All maps <i data-lucide="arrow-right" style="width:13px;height:13px"></i></button>`)}${mapTableHtml}`)}
+          ${card(`${sectionLabel('Map strength', `<button class="dc-link" id="maps-link">All maps <i data-lucide="arrow-right" style="width:13px;height:13px"></i></button>`)}${mapTableHtml}`)}
         </div>
 
       </div>
@@ -446,7 +446,7 @@ async function loadOverview() {
     });
 
   } catch (err) {
-    el.innerHTML = `<div class="owl-page"><div class="o-card" style="color:var(--orange)">Failed to load overview: ${esc(err.message)}</div></div>`;
+    el.innerHTML = `<div class="dc-page"><div class="o-card" style="color:var(--orange)">Failed to load overview: ${esc(err.message)}</div></div>`;
     console.error(err);
   }
 }
@@ -482,7 +482,7 @@ function renderFormStrip(form) {
   const wins = form.filter(f => f.won).length;
   return `<div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px">
-      <span class="owl-label">Recent form</span>
+      <span class="dc-label">Recent form</span>
       <span style="font-family:var(--font-mono);font-size:13px;color:var(--text-2)">
         <span style="color:var(--mint)">${wins}W</span> · <span style="color:var(--orange)">${form.length-wins}L</span>
       </span>
@@ -512,7 +512,7 @@ function renderMapStrengthTable(byMap) {
   return sorted.map(m => {
     const wr = Math.round(m.win_pct);
     const tone = wr >= 55 ? 'var(--mint)' : wr < 45 ? 'var(--orange)' : 'var(--text-2)';
-    return `<button class="owl-maprow" data-map-goto="${m.map}">
+    return `<button class="dc-maprow" data-map-goto="${m.map}">
       <span style="font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--text-1);width:78px;text-align:left">${mapName(m.map)}</span>
       <span style="flex:1;height:6px;background:var(--surface-3);border-radius:99px;overflow:hidden">
         <span style="display:block;height:100%;width:${wr}%;background:${tone};border-radius:99px"></span>
@@ -563,9 +563,9 @@ async function loadMaps(mapKey) {
     mapKey = S.map || (byMap[0]?.map) || 'de_dust2';
   }
   S.map = mapKey;
-  localStorage.setItem('owl_last_map', mapKey);
+  localStorage.setItem('dc_last_map', mapKey);
 
-  el.innerHTML = `<div class="owl-page"><div class="o-loading">Loading…</div></div>`;
+  el.innerHTML = `<div class="dc-page"><div class="o-loading">Loading…</div></div>`;
 
   try {
     const [detail, fundsData] = await Promise.all([
@@ -612,41 +612,41 @@ async function loadMaps(mapKey) {
 
     // Heatmap: server-rendered density map (/heatmap), wired after DOM insertion
     const heatmapHtml = hasDemos
-      ? `<div class="owl-heat-ctrls">
-           <div class="owl-seg" id="heat-lens">
-             <button class="owl-seg-btn is-active" data-lens="deaths">Death zones</button>
-             <button class="owl-seg-btn" data-lens="duel">Duel map</button>
-             <button class="owl-seg-btn" data-lens="winloss">Win vs loss</button>
+      ? `<div class="dc-heat-ctrls">
+           <div class="dc-seg" id="heat-lens">
+             <button class="dc-seg-btn is-active" data-lens="deaths">Death zones</button>
+             <button class="dc-seg-btn" data-lens="duel">Duel map</button>
+             <button class="dc-seg-btn" data-lens="winloss">Win vs loss</button>
            </div>
-           <div class="owl-seg" id="heat-side">
-             <button class="owl-seg-btn is-active" data-side="all">All</button>
-             <button class="owl-seg-btn" data-side="CT">CT</button>
-             <button class="owl-seg-btn" data-side="T">T</button>
+           <div class="dc-seg" id="heat-side">
+             <button class="dc-seg-btn is-active" data-side="all">All</button>
+             <button class="dc-seg-btn" data-side="CT">CT</button>
+             <button class="dc-seg-btn" data-side="T">T</button>
            </div>
          </div>
-         <div class="owl-radar" id="radar-panel">
+         <div class="dc-radar" id="radar-panel">
            <img id="radar-img" alt="Kill &amp; death heatmap" decoding="async">
-           <div class="owl-radar-tag" id="radar-tag">${mapName(mapKey)}</div>
+           <div class="dc-radar-tag" id="radar-tag">${mapName(mapKey)}</div>
          </div>
-         <div class="owl-heat-legend">
+         <div class="dc-heat-legend">
            <span>Less</span>
-           <span class="owl-heat-bar" id="heat-bar"></span>
+           <span class="dc-heat-bar" id="heat-bar"></span>
            <span>More</span>
            <span id="heat-legend-label" style="margin-left:4px"></span>
          </div>
-         <div class="owl-heat-insight" id="heat-insight">
-           <i data-lucide="crosshair" class="owl-heat-ico"></i>
+         <div class="dc-heat-insight" id="heat-insight">
+           <i data-lucide="crosshair" class="dc-heat-ico"></i>
            <div>
-             <div class="owl-heat-headline" id="heat-headline">Reading your demos…</div>
-             <div class="owl-heat-detail" id="heat-detail"></div>
+             <div class="dc-heat-headline" id="heat-headline">Reading your demos…</div>
+             <div class="dc-heat-detail" id="heat-detail"></div>
            </div>
          </div>`
       : emptyStateHTML('map', 'No demo data for this map', `Play ${hasFaceit ? 'more' : 'some'} matches on ${mapName(mapKey)} and the heatmap will appear here.`);
 
     // Demo-derived panels
     const demoPanels = hasDemos
-      ? `<div class="owl-demo-panel owl-demo-panel--full">${sectionLabel('Kill & death map')}${heatmapHtml}</div>
-         <div class="owl-demo-panel">
+      ? `<div class="dc-demo-panel dc-demo-panel--full">${sectionLabel('Kill & death map')}${heatmapHtml}</div>
+         <div class="dc-demo-panel">
            ${sectionLabel('Sides')}
            <div style="display:flex;flex-direction:column;gap:0">
              ${renderMiniRow('CT win %', ct.round_win_pct != null ? fmtNum(ct.round_win_pct,0)+'%' : '—', ct.round_win_pct != null ? (ct.round_win_pct >= 55 ? 'var(--mint)' : ct.round_win_pct < 45 ? 'var(--orange)' : null) : null)}
@@ -657,7 +657,7 @@ async function loadMaps(mapKey) {
              ${renderMiniRow('T util/round', fmtNum(t.util_per_round,1))}
            </div>
          </div>
-         <div class="owl-demo-panel">
+         <div class="dc-demo-panel">
            ${sectionLabel('Economy & clutch')}
            <div style="display:flex;flex-direction:column;gap:0">
              ${renderMiniRow('Full-buy ADR', fmtNum(eco.full_buy_adr,0))}
@@ -668,14 +668,14 @@ async function loadMaps(mapKey) {
              ${renderMiniRow('1v3+ clutch', clutch.v3p_total ? `${clutch.v3p_won}/${clutch.v3p_total}` : '—')}
            </div>
          </div>`
-      : `<div class="owl-demo-panel owl-demo-panel--full">
+      : `<div class="dc-demo-panel dc-demo-panel--full">
            ${emptyStateHTML('map', 'No demo data for this map', `Play matches on ${mapName(mapKey)} and per-round analysis will appear here.`)}
          </div>`;
 
-    el.innerHTML = `<div class="owl-page">
+    el.innerHTML = `<div class="dc-page">
 
       <!-- Page header -->
-      <div class="owl-page-head">
+      <div class="dc-page-head">
         <div>
           <h1 style="font-size:var(--fs-2xl)">Maps</h1>
           <p style="color:var(--text-3);font-size:var(--fs-sm);margin-top:2px">Your plan for the map, then the proof from your demos.</p>
@@ -689,13 +689,13 @@ async function loadMaps(mapKey) {
       <div class="o-pills" id="map-pills">${pillsHtml}</div>
 
       <!-- Map header -->
-      <div class="owl-map-head">
+      <div class="dc-map-head">
         <div style="display:flex;align-items:center;gap:14px">
           <h2 style="font-size:var(--fs-3xl)">${mapName(mapKey)}</h2>
           ${wrBadge}
           ${!hasFaceit ? badge('No FACEIT data','neutral','sm') : ''}
         </div>
-        <div class="owl-map-stats">
+        <div class="dc-map-stats">
           ${renderMapStat('FACEIT Win %', hasFaceit ? wr+'%' : '—', wrTone)}
           ${renderMapStat('K / D', hasFaceit ? fmtNum(fkpis.kd,2) : '—')}
           ${renderMapStat('ADR', hasFaceit ? fmtNum(fkpis.adr,1) : '—')}
@@ -708,7 +708,7 @@ async function loadMaps(mapKey) {
       <div class="o-card o-card--mint">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
           <i data-lucide="book-open" style="color:var(--mint);width:18px;height:18px"></i>
-          <span class="owl-label" style="color:var(--mint)">Map fundamentals</span>
+          <span class="dc-label" style="color:var(--mint)">Map fundamentals</span>
           <button class="o-btn o-btn--ghost o-btn--sm" id="funds-refresh" style="margin-left:auto" title="Regenerate">
             <i data-lucide="refresh-cw" style="width:13px;height:13px"></i>
           </button>
@@ -719,7 +719,7 @@ async function loadMaps(mapKey) {
       <!-- Demo-derived panels -->
       <div>
         ${sectionLabel('From your demos')}
-        <div class="owl-demo-grid">${demoPanels}</div>
+        <div class="dc-demo-grid">${demoPanels}</div>
       </div>
 
     </div>`;
@@ -737,22 +737,22 @@ async function loadMaps(mapKey) {
     if (hasDemos) initHeatmap(mapKey);
 
   } catch (err) {
-    el.innerHTML = `<div class="owl-page"><div class="o-card" style="color:var(--orange)">Failed to load map data: ${esc(err.message)}</div></div>`;
+    el.innerHTML = `<div class="dc-page"><div class="o-card" style="color:var(--orange)">Failed to load map data: ${esc(err.message)}</div></div>`;
     console.error(err);
   }
 }
 
 function renderMapStat(label, value, tone) {
   return `<div class="o-mapstat">
-    <span class="owl-label" style="color:var(--text-4)">${esc(label)}</span>
-    <span class="owl-stat" style="font-size:var(--fs-xl);color:${tone||'var(--text-1)'}">${esc(value)}</span>
+    <span class="dc-label" style="color:var(--text-4)">${esc(label)}</span>
+    <span class="dc-stat" style="font-size:var(--fs-xl);color:${tone||'var(--text-1)'}">${esc(value)}</span>
   </div>`;
 }
 
 function renderMiniRow(label, value, tone) {
   return `<div class="o-minirow">
     <span style="font-family:var(--font-body);font-size:var(--fs-sm);color:var(--text-2)">${esc(label)}</span>
-    <span class="owl-num" style="font-size:var(--fs-md);color:${tone||'var(--text-1)'};font-weight:600">${esc(String(value))}</span>
+    <span class="dc-num" style="font-size:var(--fs-md);color:${tone||'var(--text-1)'};font-weight:600">${esc(String(value))}</span>
   </div>`;
 }
 
@@ -813,10 +813,10 @@ function initHeatmap(mapKey) {
   }
 
   function wire(groupId, attr, set) {
-    document.querySelectorAll(`#${groupId} .owl-seg-btn`).forEach(b => {
+    document.querySelectorAll(`#${groupId} .dc-seg-btn`).forEach(b => {
       b.addEventListener('click', () => {
         set(b.dataset[attr]);
-        document.querySelectorAll(`#${groupId} .owl-seg-btn`).forEach(x => x.classList.toggle('is-active', x === b));
+        document.querySelectorAll(`#${groupId} .dc-seg-btn`).forEach(x => x.classList.toggle('is-active', x === b));
         update();
       });
     });
@@ -849,9 +849,9 @@ function renderAskBody() {
   const body = document.getElementById('ask-body');
   if (!body) return;
   body.innerHTML = askMsgs.map(m => `
-    <div class="owl-msg owl-msg--${m.who}">
-      ${m.who === 'coach' ? '<img src="/static/v2/owl-mark.svg" width="24" height="24" alt="" style="flex-shrink:0;margin-top:2px">' : ''}
-      <div class="owl-bubble${m.loading ? ' o-loading' : ''}">${m.loading ? '…' : (m.html ? m.html : esc(m.text))}</div>
+    <div class="dc-msg dc-msg--${m.who}">
+      ${m.who === 'coach' ? '<img src="/static/v2/dc-mark.svg" width="24" height="24" alt="" style="flex-shrink:0;margin-top:2px">' : ''}
+      <div class="dc-bubble${m.loading ? ' o-loading' : ''}">${m.loading ? '…' : (m.html ? m.html : esc(m.text))}</div>
     </div>
   `).join('');
   body.scrollTop = body.scrollHeight;
@@ -926,7 +926,7 @@ function init() {
   document.getElementById('ask-scrim')?.addEventListener('click', closeAsk);
   document.getElementById('ask-send')?.addEventListener('click', () => sendAsk(document.getElementById('ask-input')?.value));
   document.getElementById('ask-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') sendAsk(e.target.value); });
-  document.getElementById('ask-suggest')?.querySelectorAll('.owl-chip').forEach(c => {
+  document.getElementById('ask-suggest')?.querySelectorAll('.dc-chip').forEach(c => {
     c.addEventListener('click', () => sendAsk(c.dataset.q));
   });
 
@@ -949,9 +949,9 @@ async function checkSetup() {
 }
 
 function setupRow(ok, title, body) {
-  return `<div class="owl-setup-row">
-    <i data-lucide="${ok ? 'check-circle-2' : 'circle'}" class="owl-setup-ic${ok ? ' is-ok' : ''}"></i>
-    <div><div class="owl-setup-title">${title}</div><div class="owl-setup-body">${body}</div></div>
+  return `<div class="dc-setup-row">
+    <i data-lucide="${ok ? 'check-circle-2' : 'circle'}" class="dc-setup-ic${ok ? ' is-ok' : ''}"></i>
+    <div><div class="dc-setup-title">${title}</div><div class="dc-setup-body">${body}</div></div>
   </div>`;
 }
 
@@ -959,8 +959,8 @@ function renderSetupScreen(s) {
   const el = document.getElementById('view-overview');
   const ai = s.ai.configured;
   const src = s.faceit.configured || s.steam.configured || s.has_data;
-  el.innerHTML = `<div class="owl-page" style="max-width:760px">
-    <div class="owl-page-head"><div>
+  el.innerHTML = `<div class="dc-page" style="max-width:760px">
+    <div class="dc-page-head"><div>
       <h1 style="font-size:var(--fs-2xl)">Welcome to DeskChalk</h1>
       <p style="color:var(--text-3);font-size:var(--fs-sm);margin-top:2px">Set these in your <code>.env</code>, then <code>docker compose up -d</code>. This screen clears once you're connected.</p>
     </div></div>

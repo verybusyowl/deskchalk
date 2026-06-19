@@ -15,7 +15,7 @@ The UI is at `http://localhost:5608`. A fresh install shows a setup screen until
 
 ### Architecture (short version)
 
-- **`app/`** — FastAPI backend + the vanilla-JS dashboard in `app/static/v2/`. The dashboard is token-driven CSS (`owl.css` `:root`), server-rendered heatmaps via `/heatmap`, coaching verdicts via `/api/*`.
+- **`app/`** — FastAPI backend + the vanilla-JS dashboard in `app/static/v2/`. The dashboard is token-driven CSS (`app.css` `:root`), server-rendered heatmaps via `/heatmap`, coaching verdicts via `/api/*`.
 - **`app/llm.py`** — the pluggable AI layer. All model calls go through `llm.chat()`; providers today are `anthropic` and `ollama`. Add OpenAI-compatible backends here, not in business logic.
 - **`faceit-poller/`** — pulls FACEIT public stats (no demos needed).
 - **`poller/` + `gc-client/` + `worker/`** — the optional demo pipeline (`--profile demos`): fetch sharecodes, download demos, parse with `demoparser2`.

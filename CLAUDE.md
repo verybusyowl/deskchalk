@@ -1,4 +1,4 @@
-# cs2owl — Claude Code Context
+# DeskChalk — Claude Code Context
 
 Self-hosted CS2 analytics pipeline. Docker Compose stack in the repo root.
 

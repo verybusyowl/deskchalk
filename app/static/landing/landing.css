@@ -171,13 +171,13 @@ body {
   color: var(--text-secondary);
   font-weight: var(--weight-medium);
 }
-.lp-table thead th.col-owl { color: var(--accent); }
+.lp-table thead th.col-dc { color: var(--accent); }
 .lp-table tbody th {
   font-weight: var(--weight-medium);
   color: var(--text-primary);
 }
 .lp-table td { text-align: center; width: 1%; white-space: nowrap; }
-.lp-col-owl { background: var(--accent-dim); }
+.lp-col-dc { background: var(--accent-dim); }
 .lp-yes { color: var(--success); font-size: var(--text-lg); }
 .lp-no  { color: var(--text-muted); font-size: var(--text-lg); }
 

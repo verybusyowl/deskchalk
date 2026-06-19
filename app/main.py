@@ -49,7 +49,7 @@ def _fetch_steam_profile() -> dict:
         return {}
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET", "cs2owl-local-dev"))
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET", "deskchalk-local-dev"))
 
 @app.on_event("startup")
 async def _startup():
@@ -707,7 +707,7 @@ def _coach_html(question, answer_html, usage, brief, map_filter, days):
     ]
     chip_html = "".join(f'<a data-q="{_html.escape(q)}">{_html.escape(l)}</a>' for l,q in chips)
     return f"""<!doctype html><html lang=en><meta charset=utf-8>
-<title>CS2 Coach</title>
+<title>DeskChalk</title>
 <style>
 :root{{--bg:#0b0e14;--p:#131822;--p2:#1a2030;--bd:#262d3e;--tx:#dfe5ee;--mu:#8b94a8;--ac:#7aa2f7;--gd:#9ece6a;}}
 *{{box-sizing:border-box}}html,body{{margin:0;background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,sans-serif}}
@@ -1274,7 +1274,7 @@ def api_player_profile():
 
     steam = _fetch_steam_profile()
     return _j({
-        "name":        steam.get("personaname", "VeryBusyOwl"),
+        "name":        steam.get("personaname", "Player"),
         "avatar_url":  steam.get("avatarfull", ""),
         "role":        role,
         "role_detail": role_detail,
@@ -1745,7 +1745,7 @@ def app_dashboard(request: Request):
 
 @app.post("/auth/steam/stub")
 def auth_steam_stub(request: Request):
-    request.session["user"] = {"name": "VeryBusyOwl", "stub": True}
+    request.session["user"] = {"name": "Player", "stub": True}
     return RedirectResponse("/app", status_code=302)
 
 @app.get("/auth/logout")
