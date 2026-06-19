@@ -343,6 +343,16 @@ def parse_demo(path: Path) -> dict:
     header = parser.parse_header()
     map_name = header.get("map_name") or "unknown"
 
+    # Demo tickrate. CS2 demos are effectively always 64, but read it from the
+    # header when present rather than assuming, and centralize it so all time
+    # math (TTD/TTK/trade window/blind duration) derives from one source.
+    try:
+        tickrate = int(float(header.get("tickrate") or 0))
+    except (ValueError, TypeError):
+        tickrate = 0
+    if tickrate <= 0:
+        tickrate = 64
+
     # Event tables we need
     wanted_events = [
         "round_start", "round_end", "round_freeze_end",
@@ -512,6 +522,14 @@ def parse_demo(path: Path) -> dict:
         else:
             continue  # skip rounds where we cannot determine side
 
+        # Team membership this round (sid -> "T"/"CT"), used for teammate- and
+        # enemy-verified trade detection. teams_at_tick reads team_num from the
+        # per-player ticks, so this reflects post-half side swaps correctly.
+        round_teams = teams_at_tick(fz)
+        my_team_sids = {sid for sid, t in round_teams.items()
+                        if t == side and sid != STEAM_ID64}
+        opp_team_sids = {sid for sid, t in round_teams.items() if t != side}
+
         # round result. demoparser2's `winner` is either a side string ('T'/'CT')
         # or the numeric team_num (2/3) depending on parser version — handle both.
         round_won = False
@@ -636,36 +654,38 @@ def parse_demo(path: Path) -> dict:
                 if ass == STEAM_ID64:
                     assists += 1
 
-            # Trade detection (within 5s = 320 ticks at 64tick)
-            TRADE_WINDOW = 320
+            # Trade detection (within TRADE_WINDOW). Now teammate-verified: we
+            # know every player's team this round via round_teams, so a "trade"
+            # requires the avenging/avenged kill to involve an actual teammate.
+            TRADE_WINDOW = int(5.0 * tickrate)
+            # traded_death: I died and a teammate (or I) killed my killer in window.
             if my_death_tick is not None and my_killer:
-                follow = d_sorted[d_sorted["tick"] > my_death_tick]
-                follow = follow[follow["tick"] <= my_death_tick + TRADE_WINDOW]
+                follow = d_sorted[(d_sorted["tick"] > my_death_tick)
+                                  & (d_sorted["tick"] <= my_death_tick + TRADE_WINDOW)]
                 for _, frow in follow.iterrows():
                     try:
                         if _i(frow.get(victim_id_col, 0), 0) == my_killer:
-                            traded_death = True
-                            break
+                            avenger = _i(frow.get(attacker_id_col, 0), 0)
+                            if avenger == STEAM_ID64 or avenger in my_team_sids:
+                                traded_death = True
+                                break
                     except Exception:
                         continue
-            # traded_kill: a teammate died and I killed their killer within window
+            # traded_kill: a teammate died and I killed their killer within window.
             for _, drow in d_sorted.iterrows():
                 try:
                     vic = _i(drow.get(victim_id_col, 0), 0)
-                    if vic == STEAM_ID64 or vic == 0:
+                    if vic not in my_team_sids:  # teammates only (excludes me & enemies)
                         continue
-                    att = _i(drow.get(attacker_id_col, 0), 0)
+                    killer_of_mate = _i(drow.get(attacker_id_col, 0), 0)
                     vt = _i(drow.get("tick", 0), 0)
                 except Exception:
                     continue
-                # Check if victim was teammate (rough: same team as me at this tick — we
-                # don't have per-other-player ticks; skip strict teammate check, accept
-                # heuristic: my subsequent kill of `att` within window)
                 window = d_sorted[(d_sorted["tick"] > vt) & (d_sorted["tick"] <= vt + TRADE_WINDOW)]
                 for _, krow in window.iterrows():
                     try:
                         if (_i(krow.get(attacker_id_col, 0), 0) == STEAM_ID64
-                                and _i(krow.get(victim_id_col, 0), 0) == att):
+                                and _i(krow.get(victim_id_col, 0), 0) == killer_of_mate):
                             traded_kill = True
                             break
                     except Exception:
@@ -733,7 +753,7 @@ def parse_demo(path: Path) -> dict:
                 ]
                 if len(hurts_to_vic) > 0:
                     first_hit = _i(hurts_to_vic.iloc[0]["tick"], 0)
-                    ttks.append((death_t - first_hit) / 64.0 * 1000.0)
+                    ttks.append((death_t - first_hit) / tickrate * 1000.0)
             if ttks:
                 avg_ttk_ms = sum(ttks) / len(ttks)
 
@@ -775,7 +795,7 @@ def parse_demo(path: Path) -> dict:
                 while j > 0 and shot_ticks[j] - shot_ticks[j - 1] <= BURST_GAP_TICKS:
                     j -= 1
                 t0 = shot_ticks[j]
-                ttds.append((ht - t0) / 64.0 * 1000.0)
+                ttds.append((ht - t0) / tickrate * 1000.0)
 
                 vic_st = player_state_at(vic, t0)
                 if vic_st is None or not vic_st["alive"]:
@@ -809,7 +829,7 @@ def parse_demo(path: Path) -> dict:
                 for _, brow in mine_blind.iterrows():
                     bt = _i(brow.get("tick", 0), 0)
                     dur = float(brow.get("blind_duration", 0) or 0)
-                    if bt <= my_death_tick <= bt + int(dur * 64):
+                    if bt <= my_death_tick <= bt + int(dur * tickrate):
                         death_blinded = True
                         break
             # grenades still in my inventory at the moment of death (exact —
@@ -1152,8 +1172,8 @@ def parse_demo(path: Path) -> dict:
                     attacker_id_col_h = "attacker_steamid" if "attacker_steamid" in h_round.columns else "attacker_name"
                     window = h_round[
                         _id_match(h_round[attacker_id_col_h], STEAM_ID64)
-                        & (h_round["tick"] >= t_tick - 64)
-                        & (h_round["tick"] <= t_tick + 320)
+                        & (h_round["tick"] >= t_tick - tickrate)
+                        & (h_round["tick"] <= t_tick + int(5.0 * tickrate))
                     ]
                     for _, row in window.iterrows():
                         w = str(row.get("weapon", "")).lower()
