@@ -172,6 +172,29 @@ cp .env.example .env
 docker compose -f docker-compose.public.yml up -d   # or: podman compose / nerdctl compose
 ```
 
+### Windows (and macOS)
+
+On Windows or macOS, install **Docker Desktop** (simplest) or **Podman Desktop**, plus **Git**:
+
+1. **Docker Desktop** — download from [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) and install. On Windows it uses the **WSL 2** backend (the installer enables it; needs 64-bit Windows 10/11 with virtualization turned on in the BIOS). Launch Docker Desktop and wait until it shows **Running**.
+2. **Git** — Windows: [git-scm.com/download/win](https://git-scm.com/download/win) (installs Git + the *Git Bash* terminal). macOS: `brew install git`.
+3. Open **PowerShell** (or Git Bash) and run:
+
+```powershell
+git clone https://github.com/verybusyowl/deskchalk
+cd deskchalk
+Copy-Item .env.example .env        # Git Bash / macOS: cp .env.example .env
+docker compose -f docker-compose.public.yml up -d
+```
+
+Then open **http://localhost:5608**. To add your keys, edit `.env` in any text editor (Notepad is fine), then re-run the `docker compose ... up -d` line.
+
+> **Windows/macOS notes:**
+> - Docker Desktop must be **running** before any `docker compose` command.
+> - Local **Ollama** works at `host.docker.internal:11434` on Docker Desktop (no change needed).
+> - The `--profile demos` pipeline is CPU-heavy — fine on a desktop/laptop, skip it on a low-power box.
+> - Save `.env` as a plain `.env` file (Notepad won't add a `.txt` extension if you pick *All Files*).
+
 ## Troubleshooting
 
 - **First screen says "Welcome to DeskChalk / connect…"** — expected on a fresh install. Set an AI provider and a data source in `.env`, then `docker compose up -d` and reload. The setup screen clears once both are connected.
