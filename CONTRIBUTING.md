@@ -11,7 +11,7 @@ cp .env.example .env          # fill in a FACEIT key + nickname, and an AI provi
 docker compose -f docker-compose.public.yml up -d
 ```
 
-The UI is at `http://localhost:8086`. A fresh install shows a setup screen until an AI provider and one data source are connected.
+The UI is at `http://localhost:5608`. A fresh install shows a setup screen until an AI provider and one data source are connected.
 
 ### Architecture (short version)
 

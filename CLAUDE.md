@@ -18,7 +18,7 @@ cs2-gc-client → Node.js, CS2 Game Coordinator client, fetches demo URLs (no ho
 cs2-worker   → downloads + parses demos, writes all events to DB, builds replay JSONB
 cs2-renderer → FastAPI, PNG endpoints: /heatmap and /hitbox (port 8087)
 cs2-coach    → FastAPI, Claude-powered /ask endpoint (port 8088)
-cs2-app      → FastAPI + static SPA (port 8086) — main UI
+cs2-app      → FastAPI + static SPA (port 5608) — main UI
 ```
 
 All services join `webapp_app_net` (postgres) AND `cs2_net` (outbound internet).
@@ -62,7 +62,7 @@ Key views: `v_by_map`, `v_per_weapon`, `v_recent_form`, `v_session`, `v_match_sc
 - **webapp_app_net is internal:true** — no outbound internet. Services that need Steam also join `cs2_net`.
 - **round_replays ON CONFLICT DO UPDATE** (not DO NOTHING) — so re-parses refresh data.
 
-## API endpoints (app, port 8086)
+## API endpoints (app, port 5608)
 
 - `GET /api/matches` — match list with KPIs
 - `GET /api/match_rounds?match_id=X` — per-round data incl. equip_value, money_start

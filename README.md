@@ -43,7 +43,7 @@ cp .env.example .env          # add a FACEIT key + nickname, and an AI key (or u
 docker compose -f docker-compose.public.yml up -d
 ```
 
-Then open **http://localhost:8086**.
+Then open **http://localhost:5608**.
 
 The default stack runs the web UI, a bundled Postgres, and the FACEIT poller — light enough for a Raspberry Pi. To enable the heavier Steam demo-parsing pipeline (needs real CPU):
 
@@ -68,7 +68,7 @@ The `--profile demos` flag works the same on all three.
 **Podman / nerdctl notes:**
 - **Podman compose:** Podman 4.1+ ships `podman compose`; on older versions install `podman-compose` and use that command instead.
 - **Local Ollama:** Docker reaches the host at `host.docker.internal`; on Podman use `host.containers.internal` (set `LLM_BASE_URL=http://host.containers.internal:11434`). On nerdctl, add `--add-host=host.docker.internal:host-gateway` or use the host IP.
-- **Rootless:** the default port `8086` is unprivileged, so rootless Podman/nerdctl work out of the box.
+- **Rootless:** the default port `5608` is unprivileged, so rootless Podman/nerdctl work out of the box.
 
 ## Data sources
 
