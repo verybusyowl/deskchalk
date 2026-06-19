@@ -60,8 +60,22 @@ Pick whichever friction you're comfortable with — every path keeps the raw dem
 | Source | Setup | Notes |
 |---|---|---|
 | **FACEIT stats** | `FACEIT_API_KEY` + `FACEIT_NICKNAME` in `.env` | Lowest friction. Read-only, no demos. Pulls your recent matches in seconds. |
-| **Steam matchmaking** | `STEAM_*` vars + `--profile demos` | Official MM. Fetches demos from Valve via a dedicated bot account. |
+| **Steam matchmaking** | `STEAM_*` vars + `--profile demos` | Official MM. Fetches demos from Valve via a dedicated bot account *(see below)*. |
 | **Manual demo drop** | drop a `.dem` into `./demos` + `--profile demos` | Fully offline — nothing touches the network. |
+
+> **FACEIT and manual demo drop need no Steam account.** Only the auto-MM pipeline does.
+
+### Do I need a second Steam account?
+
+Only for the **auto-MM pipeline** (`--profile demos`). Valve only hands out matchmaking demo URLs to a logged-in CS2 client via the Game Coordinator, so the pipeline logs in as a Steam account to fetch them — and you should **never use your main account** for an unattended bot login.
+
+The good news: **CS2 is free-to-play.** Just make a fresh Steam account, install CS2 on it once, and put its login in `.env` as the bot. Sharecodes are self-authorizing, so this throwaway account can fetch the demos for matches played on your *main* account. Notes:
+
+- **Never your main account** — use a dedicated throwaway.
+- **Steam Guard** — you'll complete a one-time Steam Guard step on first login (the standard for any bot account).
+- This is a normal, ToS-compliant Steam login — **do not** add website session cookies/tokens; the bot uses proper Steam auth only.
+
+If that's more setup than you want, skip it: **FACEIT** or **manual demo drop** give you coaching with zero Steam account.
 
 Get a FACEIT server-side key at <https://developers.faceit.com/> → Apps.
 
