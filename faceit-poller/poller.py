@@ -110,6 +110,62 @@ def extract_my_stats(match_stats: dict, player_id: str) -> dict:
     return {}
 
 
+def extract_all_stats(match_stats: dict, player_id: str) -> list:
+    """Per-player match stats for ALL players in both teams (the 9 the poller
+    used to throw away + you). Match-level aggregates from the FACEIT stats API.
+    `faction` = the stats team_id, so allies share one value and enemies another."""
+    rounds = match_stats.get("rounds", [])
+    if not rounds:
+        return []
+    rnd = rounds[0]  # CS2 matchmaking is Bo1 → one round entry per match
+    out = []
+    for team in rnd.get("teams", []):
+        tid = team.get("team_id") or team.get("team_stats", {}).get("Team Win") or "?"
+        for player in team.get("players", []):
+            pid = player.get("player_id")
+            ps = player.get("player_stats", {})
+            # FACEIT CS2 has no "First Deaths". Entry duels are "Entry Count"
+            # (taken) and "Entry Wins" (won); entries lost = count - wins.
+            entry_count = _safe_int(ps.get("Entry Count"))
+            entry_wins  = _safe_int(ps.get("Entry Wins"))
+            out.append({
+                "player_id":      pid,
+                "nickname":       player.get("nickname"),
+                "faction":        tid,
+                "is_me":          pid == player_id,
+                "kills":          _safe_int(ps.get("Kills")),
+                "deaths":         _safe_int(ps.get("Deaths")),
+                "assists":        _safe_int(ps.get("Assists")),
+                "adr":            _safe_float(ps.get("ADR")) or _safe_float(ps.get("Average Damage per Round")),
+                "hs_pct":         _safe_float(ps.get("Headshots %")),
+                "kd_ratio":       _safe_float(ps.get("K/D Ratio")),
+                "mvps":           _safe_int(ps.get("MVPs")),
+                "opening_kills":  entry_wins,                          # entry duels won
+                "opening_deaths": max(entry_count - entry_wins, 0),    # entry duels lost
+            })
+    return out
+
+
+def upsert_player_stats(conn, faceit_match_id: str, players: list):
+    """Store every player's match-level stats. Delete-then-insert so a re-fetch
+    is clean and idempotent."""
+    if not players:
+        return
+    with conn.cursor() as c:
+        c.execute("DELETE FROM faceit_player_match_stats WHERE faceit_match_id=%s",
+                  (faceit_match_id,))
+        psycopg2.extras.execute_values(
+            c,
+            "INSERT INTO faceit_player_match_stats "
+            "(faceit_match_id, player_id, nickname, faction, is_me, kills, deaths, "
+            " assists, adr, hs_pct, kd_ratio, mvps, opening_kills, opening_deaths) VALUES %s",
+            [(faceit_match_id, p["player_id"], p["nickname"], p["faction"], p["is_me"],
+              p["kills"], p["deaths"], p["assists"], p["adr"], p["hs_pct"], p["kd_ratio"],
+              p["mvps"], p["opening_kills"], p["opening_deaths"]) for p in players],
+        )
+    conn.commit()
+
+
 def db():
     return psycopg2.connect(DB_DSN, cursor_factory=psycopg2.extras.RealDictCursor)
 
@@ -149,6 +205,26 @@ def main():
             time.sleep(3600)
 
     log(f"starting for FACEIT nickname: {FACEIT_NICKNAME}")
+
+    # Self-sufficient: ensure the all-player stats table exists even if the app
+    # hasn't created it yet (poller and app boot independently).
+    try:
+        c0 = db()
+        with c0.cursor() as cc:
+            cc.execute("""
+                CREATE TABLE IF NOT EXISTS faceit_player_match_stats (
+                    faceit_match_id TEXT REFERENCES faceit_matches(faceit_match_id) ON DELETE CASCADE,
+                    player_id TEXT NOT NULL, nickname TEXT, faction TEXT,
+                    is_me BOOLEAN DEFAULT FALSE,
+                    kills INT DEFAULT 0, deaths INT DEFAULT 0, assists INT DEFAULT 0,
+                    adr FLOAT, hs_pct FLOAT, kd_ratio FLOAT, mvps INT DEFAULT 0,
+                    opening_kills INT DEFAULT 0, opening_deaths INT DEFAULT 0,
+                    PRIMARY KEY (faceit_match_id, player_id));
+                CREATE INDEX IF NOT EXISTS idx_fpms_match ON faceit_player_match_stats(faceit_match_id);
+            """)
+        c0.commit(); c0.close()
+    except Exception as e:
+        log(f"warn: could not ensure faceit_player_match_stats: {e}")
 
     player_id = None
     current_elo = None
@@ -231,8 +307,10 @@ def main():
                         "hs_pct":          hs_pct,
                         "kd_ratio":        kd,
                         "mvps":            _safe_int(ps.get("MVPs")),
-                        "opening_kills":   _safe_int(ps.get("First Kills")),
-                        "opening_deaths":  _safe_int(ps.get("First Deaths")),
+                        # FACEIT has no "First Deaths"; entries = Entry Count/Wins.
+                        "opening_kills":   _safe_int(ps.get("Entry Wins")),
+                        "opening_deaths":  max(_safe_int(ps.get("Entry Count"))
+                                               - _safe_int(ps.get("Entry Wins")), 0),
                         "triple_kills":    _safe_int(ps.get("Triple Kills")),
                         "quadro_kills":    _safe_int(ps.get("Quadro Kills")),
                         "penta_kills":     _safe_int(ps.get("Penta Kills")),
@@ -243,6 +321,10 @@ def main():
                     }
 
                     upsert_match(conn, row)
+                    try:
+                        upsert_player_stats(conn, match_id, extract_all_stats(mstats, player_id))
+                    except Exception as e:
+                        log(f"  warn: all-player stats store failed for {match_id[:8]}: {e}")
                     new_count += 1
                     log(f"  +{match_id}  {map_name}  {'W' if won else 'L'}  {my_score}-{opp_score}  K/D={kd}")
                     time.sleep(0.5)
@@ -252,6 +334,29 @@ def main():
                     continue
 
             log(f"cycle complete: {new_count} new match(es) ingested")
+
+            # Backfill all-player stats for matches stored before the team-data
+            # update (the other 9 players were never saved). Bounded per cycle.
+            try:
+                with conn.cursor() as c:
+                    c.execute("""SELECT fm.faceit_match_id FROM faceit_matches fm
+                                 LEFT JOIN faceit_player_match_stats s
+                                   ON s.faceit_match_id = fm.faceit_match_id
+                                 WHERE s.faceit_match_id IS NULL
+                                 ORDER BY fm.played_at DESC LIMIT 15""")
+                    missing = [r["faceit_match_id"] for r in c.fetchall()]
+                for fid in missing:
+                    try:
+                        players = extract_all_stats(get_match_stats(fid), player_id)
+                        upsert_player_stats(conn, fid, players)
+                        log(f"  backfilled all-player stats {fid[:8]} ({len(players)} players)")
+                        time.sleep(0.5)
+                    except Exception as e:
+                        log(f"  warn: backfill failed {fid[:8]}: {e}")
+                if missing:
+                    log(f"backfill: {len(missing)} match(es) this cycle")
+            except Exception as e:
+                log(f"  warn: backfill step failed: {e}")
 
             # Re-fetch demo URLs for matches where url is NULL and still under retry limit
             try:

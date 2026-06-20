@@ -893,27 +893,48 @@ async function sendAsk(question) {
 // Backed by round_player_stats (all 10 players), populated on demos parsed
 // after the 2026-06-19 multi-player update.
 
+const TEAM_SRC_META = { faceit: 'FACEIT', mm: 'Matchmaking' };
+
 async function loadTeamContext() {
   const host = document.getElementById('team-context');
   if (!host) return;
-  let data;
-  try { data = await fetchJSON('/api/team_relative'); }
-  catch (e) { host.innerHTML = ''; return; }
-
-  const s = data.summary || {};
-  const matches = data.matches || [];
-
-  if (!s.matches) {
+  // Pull both sources; FACEIT is usually the real volume, MM comes from parsed demos.
+  const sources = {};
+  await Promise.all([
+    fetchJSON('/api/faceit_team').then(d => { if (d?.summary?.matches) sources.faceit = d; }).catch(() => {}),
+    fetchJSON('/api/team_relative').then(d => { if (d?.summary?.matches) sources.mm = d; }).catch(() => {}),
+  ]);
+  const keys = Object.keys(sources);
+  if (!keys.length) {
     host.innerHTML = `<div style="margin-top:var(--space-6)">
       ${sectionLabel('Team & enemy context')}
       ${card(`<div style="color:var(--text-3);font-size:var(--fs-sm)">
-        No multi-player data yet — this fills in from demos parsed after the team-data update:
-        your output vs teammates, opponent strength, and how often you trade.
-        <span style="color:var(--text-4)">Matches parsed earlier need a re-parse to appear here.</span>
+        No multi-player data yet — this fills in from FACEIT matches the poller ingests, or
+        demos parsed after the team-data update: your output vs teammates, opponent strength,
+        and how often you trade.
+        <span style="color:var(--text-4)">Older parsed matches need a re-parse to appear here.</span>
       </div>`)}
     </div>`;
     return;
   }
+  // default to the source with the most matches
+  const def = keys.reduce((a, b) => (sources[b].summary.matches > sources[a].summary.matches ? b : a));
+  renderTeamPanel(host, sources, def);
+  // delegated source toggle (host element persists across innerHTML swaps)
+  if (!host.dataset.srcBound) {
+    host.dataset.srcBound = '1';
+    host.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-team-src]');
+      if (btn && sources[btn.dataset.teamSrc]) renderTeamPanel(host, sources, btn.dataset.teamSrc);
+    });
+  }
+}
+
+function renderTeamPanel(host, sources, cur) {
+  const data = sources[cur];
+  const s = data.summary || {};
+  const matches = data.matches || [];
+  const order = ['faceit', 'mm'].filter(k => sources[k]);
 
   // mine-vs-team compare card
   const cmp = (label, mine, team, unit, higherBetter) => {
@@ -958,14 +979,11 @@ async function loadTeamContext() {
     ${badge(entryTxt, entryTone, 'sm')}
   </div>`;
 
-  const cards = [
-    cmp('Your ADR', s.avg_my_adr, s.avg_team_adr, '', true),
-    cmp('Your KAST', s.avg_my_kast, s.avg_team_kast, '%', true),
-    cmp('Trades you make', s.avg_my_trades, s.avg_team_trades, '', true),
-    entryCard,
-    rankCard,
-    enemyCard,
-  ].join('');
+  const cardList = [cmp('Your ADR', s.avg_my_adr, s.avg_team_adr, '', true)];
+  if (s.avg_my_kast != null)   cardList.push(cmp('Your KAST', s.avg_my_kast, s.avg_team_kast, '%', true));
+  if (s.avg_my_trades != null) cardList.push(cmp('Trades you make', s.avg_my_trades, s.avg_team_trades, '', true));
+  cardList.push(entryCard, rankCard, enemyCard);
+  const cards = cardList.join('');
 
   // synthesized coaching verdict — role + the one weakness worth fixing
   const dg = data.diagnosis || {};
@@ -1002,8 +1020,13 @@ async function loadTeamContext() {
         <th style="padding:5px 8px;font-weight:500;text-align:right">Enemy K/D</th>
       </tr></thead><tbody>${rows}</tbody></table>`;
 
+  const srcToggle = order.length > 1
+    ? `<span style="display:inline-flex;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:2px;vertical-align:middle">
+        ${order.map(k => `<button data-team-src="${k}" style="border:0;cursor:pointer;font-family:var(--font-mono);font-size:11px;padding:3px 9px;border-radius:4px;background:${k===cur?'var(--orange)':'transparent'};color:${k===cur?'#fff':'var(--text-3)'}">${TEAM_SRC_META[k]} ${sources[k].summary.matches}</button>`).join('')}
+      </span>`
+    : `<span style="color:var(--text-4);font-size:11px;font-family:var(--font-mono)">${TEAM_SRC_META[cur]} · ${s.matches} matches</span>`;
   host.innerHTML = `<div style="margin-top:var(--space-6)">
-    ${sectionLabel('Team & enemy context', `<span style="color:var(--text-4);font-size:11px;font-family:var(--font-mono)">${s.matches} matches</span>`)}
+    ${sectionLabel('Team & enemy context', srcToggle)}
     ${verdict}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-3);margin-top:var(--space-3)">${cards}</div>
     ${tradedNote}

@@ -100,6 +100,59 @@ async def _startup():
                 );
                 CREATE INDEX IF NOT EXISTS idx_fm_played ON faceit_matches(played_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_fm_map    ON faceit_matches(map);
+                CREATE TABLE IF NOT EXISTS faceit_player_match_stats (
+                    faceit_match_id TEXT REFERENCES faceit_matches(faceit_match_id) ON DELETE CASCADE,
+                    player_id TEXT NOT NULL, nickname TEXT, faction TEXT,
+                    is_me BOOLEAN DEFAULT FALSE,
+                    kills INT DEFAULT 0, deaths INT DEFAULT 0, assists INT DEFAULT 0,
+                    adr FLOAT, hs_pct FLOAT, kd_ratio FLOAT, mvps INT DEFAULT 0,
+                    opening_kills INT DEFAULT 0, opening_deaths INT DEFAULT 0,
+                    PRIMARY KEY (faceit_match_id, player_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_fpms_match ON faceit_player_match_stats(faceit_match_id);
+                CREATE OR REPLACE VIEW v_faceit_team_relative AS
+                WITH me AS (SELECT faceit_match_id, faction FROM faceit_player_match_stats WHERE is_me),
+                ally AS (
+                    SELECT s.faceit_match_id, s.is_me, s.kills, s.adr,
+                           RANK() OVER (PARTITION BY s.faceit_match_id ORDER BY s.kills DESC) AS team_rank
+                    FROM faceit_player_match_stats s
+                    JOIN me ON me.faceit_match_id=s.faceit_match_id AND me.faction=s.faction)
+                SELECT a.faceit_match_id, fm.map, fm.played_at, fm.won,
+                    MAX(CASE WHEN a.is_me THEN a.kills END) AS my_kills,
+                    ROUND(AVG(a.kills),1) AS team_avg_kills,
+                    MAX(CASE WHEN a.is_me THEN a.adr END) AS my_adr,
+                    ROUND(AVG(a.adr)::numeric,1) AS team_avg_adr,
+                    MAX(CASE WHEN a.is_me THEN a.team_rank END) AS my_team_rank,
+                    COUNT(*) AS team_size
+                FROM ally a JOIN faceit_matches fm USING (faceit_match_id)
+                GROUP BY a.faceit_match_id, fm.map, fm.played_at, fm.won
+                ORDER BY fm.played_at DESC;
+                CREATE OR REPLACE VIEW v_faceit_enemy_strength AS
+                WITH me AS (SELECT faceit_match_id, faction FROM faceit_player_match_stats WHERE is_me),
+                enemy AS (
+                    SELECT s.faceit_match_id, s.kills, s.deaths, s.adr
+                    FROM faceit_player_match_stats s
+                    JOIN me ON me.faceit_match_id=s.faceit_match_id AND me.faction<>s.faction)
+                SELECT e.faceit_match_id, fm.map, fm.played_at, COUNT(*) AS enemy_players,
+                    ROUND(AVG(e.kills::numeric/NULLIF(e.deaths,0)),2) AS enemy_avg_kd,
+                    ROUND(AVG(e.adr)::numeric,1) AS enemy_avg_adr,
+                    ROUND(MAX(e.kills::numeric/NULLIF(e.deaths,0)),2) AS enemy_top_kd
+                FROM enemy e JOIN faceit_matches fm USING (faceit_match_id)
+                GROUP BY e.faceit_match_id, fm.map, fm.played_at ORDER BY fm.played_at DESC;
+                CREATE OR REPLACE VIEW v_faceit_entry AS
+                WITH me AS (SELECT faceit_match_id, faction FROM faceit_player_match_stats WHERE is_me),
+                ally AS (
+                    SELECT s.faceit_match_id, s.is_me, s.opening_kills AS ek, s.opening_deaths AS ed
+                    FROM faceit_player_match_stats s
+                    JOIN me ON me.faceit_match_id=s.faceit_match_id AND me.faction=s.faction)
+                SELECT a.faceit_match_id, fm.map, fm.played_at,
+                    MAX(CASE WHEN a.is_me THEN a.ek END) AS my_entry_kills,
+                    MAX(CASE WHEN a.is_me THEN a.ed END) AS my_entry_deaths,
+                    MAX(CASE WHEN a.is_me THEN a.ek+a.ed END) AS my_entries,
+                    MAX(CASE WHEN a.is_me THEN ROUND(100.0*a.ek/NULLIF(a.ek+a.ed,0),1) END) AS my_entry_win_pct,
+                    ROUND(AVG(a.ek+a.ed),1) AS team_avg_entries
+                FROM ally a JOIN faceit_matches fm USING (faceit_match_id)
+                GROUP BY a.faceit_match_id, fm.map, fm.played_at ORDER BY fm.played_at DESC;
                 CREATE TABLE IF NOT EXISTS focus_log (
                     id            SERIAL PRIMARY KEY,
                     assigned_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -967,7 +1020,15 @@ def _team_diagnosis(s: dict) -> dict:
             f"your KAST is {my_kast:.0f}% vs team {team_kast:.0f}%",
             "You're impacting fewer rounds than your teammates. Get a kill, an assist, "
             "a trade, or just survive — contribute something every round instead of going even-or-nothing."))
-    if my_adr is not None and team_adr is not None and my_adr < team_adr:
+    pct_above = fnum(s.get("pct_at_or_above_team"))
+    if pct_above is not None and pct_above < 50:
+        # % of games at/above team ADR — catches a player who is consistently a
+        # little under even when the average gap looks small.
+        cands.append(((50 - pct_above) / 50,
+            f"you're under your team's ADR in {100 - pct_above:.0f}% of games",
+            "You're the lower-damage end of your team most nights. Use utility for guaranteed "
+            "chip damage, trade more, and stop over-extending for picks you don't convert."))
+    elif my_adr is not None and team_adr is not None and my_adr < team_adr:
         cands.append(((team_adr - my_adr) / 30,
             f"your ADR is {my_adr:.0f} vs team {team_adr:.0f}",
             "You're below your team's damage output. Use utility for guaranteed chip damage and "
@@ -1054,6 +1115,52 @@ def api_team_relative(limit: int = Query(15)):
             summary["entry_win_pct"] = (round(100.0*ek/(ek+ed), 1)
                                         if ek is not None and ed is not None and (ek+ed) else None)
         return _j({"summary": summary, "diagnosis": _team_diagnosis(summary), "matches": matches})
+    finally:
+        conn.close()
+
+@app.get("/api/faceit_team")
+def api_faceit_team(limit: int = Query(15)):
+    """Same team + enemy + entry context as /api/team_relative, but for FACEIT
+    matches — built from the all-player match-stats the poller now stores. Match
+    granularity (FACEIT stats are per-match), so no KAST/trade columns; the shared
+    diagnosis falls back to the ADR-vs-team and entry-win signals it does have."""
+    conn = _db()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT tr.faceit_match_id, tr.map, tr.played_at, tr.won,
+                       tr.my_kills, tr.team_avg_kills, tr.my_adr, tr.team_avg_adr,
+                       tr.my_team_rank, tr.team_size,
+                       es.enemy_avg_kd, es.enemy_avg_adr, es.enemy_top_kd,
+                       en.my_entries, en.my_entry_win_pct, en.team_avg_entries
+                FROM v_faceit_team_relative tr
+                LEFT JOIN v_faceit_enemy_strength es USING (faceit_match_id)
+                LEFT JOIN v_faceit_entry          en USING (faceit_match_id)
+                ORDER BY tr.played_at DESC NULLS LAST
+                LIMIT %s""", (limit,))
+            matches = [dict(r) for r in c.fetchall()]
+            c.execute("""
+                SELECT COUNT(*) AS matches,
+                       ROUND(AVG(my_adr)::numeric,1)       AS avg_my_adr,
+                       ROUND(AVG(team_avg_adr)::numeric,1) AS avg_team_adr,
+                       ROUND(AVG(my_team_rank)::numeric,2) AS avg_team_rank,
+                       ROUND(100.0*COUNT(*) FILTER (WHERE my_adr >= team_avg_adr)::numeric
+                             /NULLIF(COUNT(*),0),1)        AS pct_at_or_above_team
+                FROM v_faceit_team_relative WHERE my_adr IS NOT NULL""")
+            summary = dict(c.fetchone() or {})
+            c.execute("""SELECT ROUND(AVG(my_entries)::numeric,1)      AS avg_my_entries,
+                                ROUND(AVG(team_avg_entries)::numeric,1) AS avg_team_entries,
+                                SUM(my_entry_kills)                     AS tot_entry_kills,
+                                SUM(my_entry_deaths)                    AS tot_entry_deaths
+                         FROM v_faceit_entry WHERE my_entries IS NOT NULL""")
+            summary.update(dict(c.fetchone() or {}))
+            ek = summary.get("tot_entry_kills"); ed = summary.get("tot_entry_deaths")
+            ek = None if ek is None else int(ek); ed = None if ed is None else int(ed)
+            summary["tot_entry_kills"], summary["tot_entry_deaths"] = ek, ed
+            summary["entry_win_pct"] = (round(100.0*ek/(ek+ed), 1)
+                                        if ek is not None and ed is not None and (ek+ed) else None)
+        return _j({"summary": summary, "diagnosis": _team_diagnosis(summary),
+                   "matches": matches, "source": "faceit"})
     finally:
         conn.close()
 
