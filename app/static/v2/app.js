@@ -407,6 +407,9 @@ async function loadOverview() {
         </div>
       </div>
 
+      <!-- Team & enemy context (filled async by loadTeamContext) -->
+      <div id="team-context"></div>
+
       <!-- Bench + context -->
       <div class="dc-two-col">
 
@@ -440,6 +443,7 @@ async function loadOverview() {
     document.getElementById('focus-refresh')?.addEventListener('click', refreshFocus);
     document.getElementById('brief-refresh')?.addEventListener('click', refreshBrief);
     document.getElementById('maps-link')?.addEventListener('click', () => setView('maps'));
+    loadTeamContext();  // team + enemy panel, failure-isolated
     el.querySelectorAll('.ask-open').forEach(b => b.addEventListener('click', openAsk));
     el.querySelectorAll('[data-map-goto]').forEach(b => {
       b.addEventListener('click', () => { S.map = b.dataset.mapGoto; setView('maps'); });
@@ -882,6 +886,107 @@ async function sendAsk(question) {
     askMsgs.push({who:'coach', text: 'Sorry, something went wrong. Please try again.'});
   }
   renderAskBody();
+}
+
+// ── TEAM & ENEMY CONTEXT ───────────────────────────────────────────
+// Your output vs your own team, opponent strength, and trade involvement.
+// Backed by round_player_stats (all 10 players), populated on demos parsed
+// after the 2026-06-19 multi-player update.
+
+async function loadTeamContext() {
+  const host = document.getElementById('team-context');
+  if (!host) return;
+  let data;
+  try { data = await fetchJSON('/api/team_relative'); }
+  catch (e) { host.innerHTML = ''; return; }
+
+  const s = data.summary || {};
+  const matches = data.matches || [];
+
+  if (!s.matches) {
+    host.innerHTML = `<div style="margin-top:var(--space-6)">
+      ${sectionLabel('Team & enemy context')}
+      ${card(`<div style="color:var(--text-3);font-size:var(--fs-sm)">
+        No multi-player data yet — this fills in from demos parsed after the team-data update:
+        your output vs teammates, opponent strength, and how often you trade.
+        <span style="color:var(--text-4)">Matches parsed earlier need a re-parse to appear here.</span>
+      </div>`)}
+    </div>`;
+    return;
+  }
+
+  // mine-vs-team compare card
+  const cmp = (label, mine, team, unit, higherBetter) => {
+    const m = mine == null ? null : +mine, t = team == null ? null : +team;
+    let tone = 'neutral', txt = 'no team data';
+    if (m != null && t != null) {
+      const better = higherBetter ? m >= t : m <= t;
+      tone = better ? 'good' : 'bad';
+      txt = `${better ? '▲' : '▼'} ${Math.abs(m - t).toFixed(1)} vs team`;
+    }
+    return `<div class="o-card" style="padding:var(--space-4);display:flex;flex-direction:column;gap:6px">
+      <span class="dc-label" style="color:var(--text-3)">${esc(label)}</span>
+      <span class="dc-stat" style="font-size:var(--fs-2xl);line-height:1">${m==null?'—':fmtNum(m,1)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600">${esc(unit)}</span></span>
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-4)">team avg ${t==null?'—':fmtNum(t,1)}${esc(unit)}</span>
+      ${badge(txt, tone, 'sm')}
+    </div>`;
+  };
+
+  const teamSize = matches[0]?.team_size || 5;
+  const rankCard = `<div class="o-card" style="padding:var(--space-4);display:flex;flex-direction:column;gap:6px">
+    <span class="dc-label" style="color:var(--text-3)">Avg team rank (by kills)</span>
+    <span class="dc-stat" style="font-size:var(--fs-2xl);line-height:1">${s.avg_team_rank==null?'—':'#'+fmtNum(s.avg_team_rank,1)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600"> / ${teamSize}</span></span>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-4)">${s.pct_at_or_above_team==null?'—':fmtNum(s.pct_at_or_above_team,0)+'% of games at/above team ADR'}</span>
+    ${badge(s.avg_team_rank!=null && s.avg_team_rank<=2 ? 'carrying' : s.avg_team_rank!=null && s.avg_team_rank>=4 ? 'carried' : 'mid', s.avg_team_rank!=null && s.avg_team_rank<=2 ? 'good' : s.avg_team_rank!=null && s.avg_team_rank>=4 ? 'bad' : 'neutral', 'sm')}
+  </div>`;
+
+  const enemyCard = `<div class="o-card" style="padding:var(--space-4);display:flex;flex-direction:column;gap:6px">
+    <span class="dc-label" style="color:var(--text-3)">Opponent strength</span>
+    <span class="dc-stat" style="font-size:var(--fs-2xl);line-height:1">${matches[0]?.enemy_avg_kd==null?'—':fmtNum(matches[0].enemy_avg_kd,2)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600"> K/D</span></span>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-4)">last game · top enemy ${matches[0]?.enemy_top_kd==null?'—':fmtNum(matches[0].enemy_top_kd,2)} K/D</span>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-4)">context for your stats</span>
+  </div>`;
+
+  const cards = [
+    cmp('Your ADR', s.avg_my_adr, s.avg_team_adr, '', true),
+    cmp('Your KAST', s.avg_my_kast, s.avg_team_kast, '%', true),
+    cmp('Trades you make', s.avg_my_trades, s.avg_team_trades, '', true),
+    rankCard,
+    enemyCard,
+  ].join('');
+
+  const tradedFor = s.avg_my_traded_for;
+  const tradedNote = tradedFor == null ? '' :
+    `<div style="margin-top:10px;font-size:var(--fs-sm);color:var(--text-3)">
+       Your deaths get traded <b style="color:var(--text-2)">${fmtNum(tradedFor,0)}%</b> of the time —
+       ${tradedFor >= 55 ? 'good trade positioning, you play near teammates.'
+                         : 'you often die out of trade range; play closer to support.'}
+     </div>`;
+
+  // recent matches mini-table
+  const rows = matches.slice(0, 8).map(mt => `<tr>
+      <td style="padding:5px 8px">${esc(mt.map || '')}</td>
+      <td style="padding:5px 8px;text-align:center">${mt.my_team_rank==null?'—':'#'+mt.my_team_rank}</td>
+      <td style="padding:5px 8px;text-align:right;color:${(mt.my_adr!=null&&mt.team_avg_adr!=null&&+mt.my_adr>=+mt.team_avg_adr)?'var(--mint)':'var(--orange)'}">${mt.my_adr==null?'—':fmtNum(mt.my_adr,0)}</td>
+      <td style="padding:5px 8px;text-align:right;color:var(--text-3)">${mt.team_avg_adr==null?'—':fmtNum(mt.team_avg_adr,0)}</td>
+      <td style="padding:5px 8px;text-align:right">${mt.enemy_avg_kd==null?'—':fmtNum(mt.enemy_avg_kd,2)}</td>
+    </tr>`).join('');
+  const table = `<table style="width:100%;border-collapse:collapse;font-size:var(--fs-sm)">
+      <thead><tr style="color:var(--text-4);font-family:var(--font-mono);font-size:11px;text-align:left">
+        <th style="padding:5px 8px;font-weight:500">Map</th>
+        <th style="padding:5px 8px;font-weight:500;text-align:center">Rank</th>
+        <th style="padding:5px 8px;font-weight:500;text-align:right">You ADR</th>
+        <th style="padding:5px 8px;font-weight:500;text-align:right">Team ADR</th>
+        <th style="padding:5px 8px;font-weight:500;text-align:right">Enemy K/D</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+
+  host.innerHTML = `<div style="margin-top:var(--space-6)">
+    ${sectionLabel('Team & enemy context', `<span style="color:var(--text-4);font-size:11px;font-family:var(--font-mono)">${s.matches} matches</span>`)}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-3)">${cards}</div>
+    ${tradedNote}
+    <div style="margin-top:var(--space-4)">${card(table)}</div>
+  </div>`;
+  lucide.createIcons();
 }
 
 // ── NAV ────────────────────────────────────────────────────────────

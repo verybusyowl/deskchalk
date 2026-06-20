@@ -921,6 +921,52 @@ def api_map_fundamentals(map: str = Query(...), refresh: int = Query(0)):
     finally:
         conn.close()
 
+@app.get("/api/team_relative")
+def api_team_relative(limit: int = Query(15)):
+    """Team + enemy context: your output vs your team, opponent strength, and
+    trade involvement — per recent match plus a career summary. Backed by the
+    all-player round_player_stats table (populated on demos parsed after the
+    2026-06-19 multi-player update)."""
+    conn = _db()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                SELECT tr.match_id, tr.map, tr.played_at, tr.won,
+                       tr.my_kills, tr.team_avg_kills, tr.my_adr, tr.team_avg_adr,
+                       tr.my_team_rank, tr.team_size,
+                       es.enemy_avg_kd, es.enemy_avg_adr, es.enemy_top_kd,
+                       ti.my_traded_for_pct, ti.team_avg_traded_for_pct,
+                       ti.my_trades_made, ti.team_avg_trades_made,
+                       ri.my_kast_pct, ri.team_avg_kast_pct
+                FROM v_team_relative tr
+                LEFT JOIN v_enemy_strength es USING (match_id)
+                LEFT JOIN v_trade_impact   ti USING (match_id)
+                LEFT JOIN v_round_impact   ri USING (match_id)
+                ORDER BY tr.played_at DESC NULLS LAST
+                LIMIT %s""", (limit,))
+            matches = [dict(r) for r in c.fetchall()]
+            c.execute("""
+                SELECT COUNT(*) AS matches,
+                       ROUND(AVG(my_adr),1)        AS avg_my_adr,
+                       ROUND(AVG(team_avg_adr),1)  AS avg_team_adr,
+                       ROUND(AVG(my_team_rank),2)  AS avg_team_rank,
+                       ROUND(100.0*COUNT(*) FILTER (WHERE my_adr >= team_avg_adr)::numeric
+                             /NULLIF(COUNT(*),0),1) AS pct_at_or_above_team
+                FROM v_team_relative WHERE my_adr IS NOT NULL""")
+            summary = dict(c.fetchone() or {})
+            c.execute("""SELECT ROUND(AVG(my_kast_pct),1)       AS avg_my_kast,
+                                ROUND(AVG(team_avg_kast_pct),1) AS avg_team_kast
+                         FROM v_round_impact WHERE my_kast_pct IS NOT NULL""")
+            summary.update(dict(c.fetchone() or {}))
+            c.execute("""SELECT ROUND(AVG(my_trades_made),1)      AS avg_my_trades,
+                                ROUND(AVG(team_avg_trades_made),1) AS avg_team_trades,
+                                ROUND(AVG(my_traded_for_pct),1)    AS avg_my_traded_for
+                         FROM v_trade_impact WHERE my_trades_made IS NOT NULL""")
+            summary.update(dict(c.fetchone() or {}))
+        return _j({"summary": summary, "matches": matches})
+    finally:
+        conn.close()
+
 # ── Today's Focus engine ───────────────────────────────────────────────────────
 # Deterministic picker chooses the weakest Tier-1 metric; Claude only writes
 # the advice. Focus persists in focus_log so progress is measurable (Phase 3).
@@ -947,6 +993,9 @@ FOCUS_METRICS = {
                             "turn away or jiggle off angles when flashes pop — never hold blind"),
     "util_unused_at_death":("Dying with unused utility", "lower", 0.8, 30,
                             "use grenades before engaging — utility in inventory wins nothing"),
+    "below_team_adr_pct":  ("Carrying your weight (ADR vs team)", "lower", 50.0, 5,
+                            "you're under your team's ADR most games — trade more, take map "
+                            "with util, stop dry-peeking for picks you don't convert"),
 }
 
 def _metric_value(conn, metric: str, since=None):
@@ -995,6 +1044,12 @@ def _metric_value(conn, metric: str, since=None):
             c.execute(f"""SELECT ROUND(AVG(pr.death_unused_util)::numeric,2) AS v, COUNT(*) AS n
                           FROM player_rounds pr JOIN matches m USING(match_id)
                           WHERE pr.death_unused_util IS NOT NULL {tw}""", p)
+        elif metric == "below_team_adr_pct":
+            # % of matches where your ADR was below your own team's average.
+            c.execute(f"""SELECT ROUND(100.0*COUNT(*) FILTER (WHERE m.my_adr < m.team_avg_adr)::numeric
+                          /NULLIF(COUNT(*),0),1) AS v, COUNT(*) AS n
+                          FROM v_team_relative m
+                          WHERE m.my_adr IS NOT NULL {tw}""", p)
         else:
             return None, 0
         row = c.fetchone() or {}

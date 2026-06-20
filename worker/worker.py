@@ -337,6 +337,115 @@ def _is_me(series):
     return _id_match(series, STEAM_ID64)
 
 
+# Weapons whose player_hurt damage counts as utility damage.
+NADE_DMG_WEAPONS = {"hegrenade", "inferno", "molotov", "incgrenade", "inc_grenade"}
+
+
+def _round_player_stats(rn, round_teams, d_round, h_round, tickrate,
+                        my_sid, names):
+    """Per-player round stats for ALL players (team + enemy), derived purely
+    from the death/hurt event tables (which already contain every player).
+    Returns a list of dicts, one per steamid in round_teams. Trade detection is
+    teammate-verified using round_teams (a player's allies = same side that
+    round). This is the all-player analogue of the YOU-only player_rounds row.
+    """
+    rows = []
+    if not round_teams:
+        return rows
+
+    # Precompute death events once: list of (att, vic, ass, flash, hs, tick).
+    deaths = []
+    first_att = first_vic = None
+    if d_round is not None and len(d_round) > 0:
+        d_sorted = d_round.sort_values("tick").reset_index(drop=True)
+        a_col = "attacker_steamid" if "attacker_steamid" in d_sorted.columns else "attacker_name"
+        v_col = "user_steamid" if "user_steamid" in d_sorted.columns else "user_name"
+        has_ass = "assister_steamid" in d_sorted.columns
+        has_flash = "assistedflash" in d_sorted.columns
+        for _, row in d_sorted.iterrows():
+            try:
+                att = _i(row.get(a_col, 0), 0)
+                vic = _i(row.get(v_col, 0), 0)
+                ass = _i(row.get("assister_steamid", 0), 0) if has_ass else 0
+                flash = bool(row.get("assistedflash", False)) if has_flash else False
+                hs = bool(row.get("headshot", False))
+                tk = _i(row.get("tick", 0), 0)
+            except Exception:
+                continue
+            deaths.append((att, vic, ass, flash, hs, tk))
+        if deaths:
+            first_att, first_vic = deaths[0][0], deaths[0][1]
+    # A real opening duel needs a genuine kill (not a suicide/world/bomb death).
+    opening_valid = bool(first_att and first_vic and first_att != first_vic)
+
+    # Precompute per-attacker damage (all weapons) and utility damage (nades).
+    dmg_by, util_dmg_by = {}, {}
+    if h_round is not None and len(h_round) > 0:
+        ha_col = "attacker_steamid" if "attacker_steamid" in h_round.columns else "attacker_name"
+        has_wpn = "weapon" in h_round.columns
+        for _, row in h_round.iterrows():
+            try:
+                att = _i(row.get(ha_col, 0), 0)
+                dmg = _i(row.get("dmg_health", row.get("damage", 0)), 0)
+            except Exception:
+                continue
+            dmg_by[att] = dmg_by.get(att, 0) + dmg
+            if has_wpn and str(row.get("weapon", "") or "").lower() in NADE_DMG_WEAPONS:
+                util_dmg_by[att] = util_dmg_by.get(att, 0) + dmg
+
+    TRADE_WINDOW = int(5.0 * tickrate)
+    for sid, side in round_teams.items():
+        teammates = {s for s, t in round_teams.items() if t == side and s != sid}
+        kills = deaths_n = assists = headshots = flash_assists = 0
+        died_tick = None
+        killer = None
+        survived = True
+        for (att, vic, ass, flash, hs, tk) in deaths:
+            if att == sid:
+                kills += 1
+                if hs:
+                    headshots += 1
+            if vic == sid:
+                deaths_n += 1
+                survived = False
+                died_tick, killer = tk, att
+            if ass == sid:
+                assists += 1
+                if flash:
+                    flash_assists += 1
+
+        traded_death = traded_kill = False
+        # I died and a teammate avenged me within the window.
+        if died_tick is not None and killer:
+            for (att, vic, ass, flash, hs, tk) in deaths:
+                if (died_tick < tk <= died_tick + TRADE_WINDOW
+                        and vic == killer and att in teammates):
+                    traded_death = True
+                    break
+        # A teammate died and I killed their killer within the window.
+        for (att, vic, ass, flash, hs, tk) in deaths:
+            if vic in teammates:
+                for (att2, vic2, _a, _f, _h, tk2) in deaths:
+                    if (tk < tk2 <= tk + TRADE_WINDOW and att2 == sid and vic2 == att):
+                        traded_kill = True
+                        break
+            if traded_kill:
+                break
+
+        rows.append({
+            "round_num": rn, "steamid": sid, "name": names.get(sid, ""),
+            "side": side, "is_me": sid == my_sid,
+            "kills": kills, "deaths": deaths_n, "assists": assists,
+            "damage": dmg_by.get(sid, 0), "headshots": headshots,
+            "opening_kill": opening_valid and first_att == sid,
+            "opening_death": opening_valid and first_vic == sid,
+            "traded_kill": traded_kill, "traded_death": traded_death,
+            "survived": survived, "util_damage": util_dmg_by.get(sid, 0),
+            "flash_assists": flash_assists,
+        })
+    return rows
+
+
 def parse_demo(path: Path) -> dict:
     """Parse a demo file. Returns a dict ready for DB insertion."""
     parser = DemoParser(str(path))
@@ -468,6 +577,14 @@ def parse_demo(path: Path) -> dict:
             except Exception:
                 pass
 
+    # Player display names (for the all-player round stats table).
+    player_names: dict = {}
+    for _sid, _df in player_ticks.items():
+        try:
+            player_names[_sid] = str(_df.iloc[0].get("name", "") or "")
+        except Exception:
+            player_names[_sid] = ""
+
     def player_state_at(sid: int, tick: int) -> dict | None:
         """Return {x,y,alive,team,hp} for a player at the nearest tick <= given tick."""
         df = player_ticks.get(sid)
@@ -504,6 +621,7 @@ def parse_demo(path: Path) -> dict:
 
     # ---- Per-round assembly ----
     player_rounds_rows = []
+    round_player_stats_rows = []
     damage_events_rows = []
     kill_events_rows = []
     grenade_events_rows = []
@@ -553,6 +671,12 @@ def parse_demo(path: Path) -> dict:
         p_round = purchases_by_round.get(rn)
         bomb_round = bombs_by_round.get(rn)
         f_round = fires_by_round.get(rn)
+
+        # All-player (team + enemy) per-round stats — derived from the same
+        # death/hurt events, teammate-verified via round_teams.
+        round_player_stats_rows.extend(
+            _round_player_stats(rn, round_teams, d_round, h_round,
+                                 tickrate, STEAM_ID64, player_names))
 
         # ---- shot_events: every weapon_fire by me this round ----
         # For gun shots also record speed at trigger time, position within the
@@ -1243,6 +1367,7 @@ def parse_demo(path: Path) -> dict:
         "won": won,
         "demo_filename": path.name,
         "player_rounds": player_rounds_rows,
+        "round_player_stats": round_player_stats_rows,
         "damage_events": damage_events_rows,
         "kill_events": kill_events_rows,
         "grenade_events": grenade_events_rows,
@@ -1424,6 +1549,22 @@ def write_match(conn, matchid: int, sharecode: str, parsed: dict,
                     f"INSERT INTO player_rounds ({','.join(pr_cols)}) VALUES %s "
                     f"ON CONFLICT (match_id, round_num) DO UPDATE SET {set_clause}",
                     pr_rows,
+                )
+
+            # All-player round stats (team + enemy). Delete-before-insert so a
+            # re-parse refreshes cleanly.
+            c.execute("DELETE FROM round_player_stats WHERE match_id=%s", (matchid,))
+            rps_cols = ["match_id", "round_num", "steamid", "name", "side", "is_me",
+                        "kills", "deaths", "assists", "damage", "headshots",
+                        "opening_kill", "opening_death", "traded_kill", "traded_death",
+                        "survived", "util_damage", "flash_assists"]
+            rps_rows = [tuple([matchid] + [r.get(col) for col in rps_cols[1:]])
+                        for r in parsed.get("round_player_stats", [])]
+            if rps_rows:
+                psycopg2.extras.execute_values(
+                    c,
+                    f"INSERT INTO round_player_stats ({','.join(rps_cols)}) VALUES %s",
+                    rps_rows,
                 )
 
             # For event tables: delete existing rows for this match before
