@@ -749,10 +749,15 @@ def parse_demo(path: Path) -> dict:
             attacker_id_col = "attacker_steamid" if "attacker_steamid" in d_sorted.columns else "attacker_name"
             victim_id_col = "user_steamid" if "user_steamid" in d_sorted.columns else "user_name"
             try:
-                if _i(first.get(attacker_id_col, 0), 0) == STEAM_ID64:
-                    opening_kill = True
-                if _i(first.get(victim_id_col, 0), 0) == STEAM_ID64:
-                    opening_death = True
+                first_att = _i(first.get(attacker_id_col, 0), 0)
+                first_vic = _i(first.get(victim_id_col, 0), 0)
+                # Only a real duel counts as an opening duel — a suicide / fall /
+                # world death (no attacker, or attacker==victim) is not first blood.
+                if first_att and first_att != first_vic:
+                    if first_att == STEAM_ID64:
+                        opening_kill = True
+                    if first_vic == STEAM_ID64:
+                        opening_death = True
             except Exception:
                 pass
 
@@ -884,8 +889,8 @@ def parse_demo(path: Path) -> dict:
         # ---- Tier-1 mechanics: time-to-damage + crosshair placement ----
         # Engagement = consecutive hurts I deal to the same victim with <2s gaps.
         # ttd = ms from the start of the firing burst to the first hit;
-        # crosshair_err = vertical angle (deg) between my aim and the victim's
-        # head at burst start (positive = aiming too low).
+        # crosshair_err = total angle (deg) between my aim and the victim's
+        # head at burst start (combines horizontal + vertical miss).
         ttd_ms = None
         crosshair_err_deg = None
         if h_round is not None and len(h_round) > 0 and my_gun_shots:
@@ -929,15 +934,26 @@ def parse_demo(path: Path) -> dict:
                     my_y = float(tick_value(t0, "Y", None))
                     my_z = float(tick_value(t0, "Z", None))
                     my_pitch = float(tick_value(t0, "pitch", None))
+                    my_yaw = float(tick_value(t0, "yaw", None))
                 except (TypeError, ValueError):
                     continue
-                horiz = math.hypot(vic_st["x"] - my_x, vic_st["y"] - my_y)
+                dx, dy, dz = vic_st["x"] - my_x, vic_st["y"] - my_y, vic_st["z"] - my_z
+                horiz = math.hypot(dx, dy)
                 if horiz < 50:  # point-blank — angle is meaningless
                     continue
-                # both Z values are origins; head ≈ origin + eye height for both,
-                # so the offsets cancel. Source pitch: positive = looking down.
-                needed_pitch = -math.degrees(math.atan2(vic_st["z"] - my_z, horiz))
-                errs.append(my_pitch - needed_pitch)
+                dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+                if dist <= 0:
+                    continue
+                # Full crosshair error = angle between aim direction and the
+                # direction to the target head — combines yaw AND pitch, not just
+                # the vertical miss. Both Z's are origins; equal eye heights cancel
+                # so dz is the head-to-head delta. Source pitch: positive = down.
+                pr_, yr_ = math.radians(my_pitch), math.radians(my_yaw)
+                ax = math.cos(pr_) * math.cos(yr_)
+                ay = math.cos(pr_) * math.sin(yr_)
+                az = -math.sin(pr_)
+                dot = max(-1.0, min(1.0, (ax*dx + ay*dy + az*dz) / dist))
+                errs.append(math.degrees(math.acos(dot)))
             if ttds:
                 ttd_ms = sum(ttds) / len(ttds)
             if errs:
@@ -1306,7 +1322,14 @@ def parse_demo(path: Path) -> dict:
                         elif gtype == "molotov" and ("inferno" in w or "molotov" in w or "incgrenade" in w):
                             dmg += _i(row.get("dmg_health", row.get("damage", 0)), 0)
 
-                had_effect = (enemies_flashed > 0) or (dmg > 0) or (gtype == "smoke")
+                # Smokes and decoys have no flash/damage signal to grade them by;
+                # marking them "effective" just for being thrown was a free pass that
+                # inflated effective_pct and meant a smoke could never be wasted.
+                # Store NULL = "not gradable" and exclude them from effective/wasted.
+                if gtype in ("smoke", "decoy"):
+                    had_effect = None
+                else:
+                    had_effect = (enemies_flashed > 0) or (dmg > 0)
 
                 grenade_events_rows.append({
                     "round_num": rn,

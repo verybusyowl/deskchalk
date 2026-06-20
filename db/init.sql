@@ -258,11 +258,14 @@ CREATE OR REPLACE VIEW v_utility AS
 SELECT
     m.map, pr.side, ge.grenade_type,
     COUNT(*)                                                                AS throws,
-    ROUND(100.0*SUM(CASE WHEN ge.had_effect THEN 1 END)/COUNT(*),1)        AS effective_pct,
+    -- effective_pct over GRADABLE throws only (smoke/decoy = NULL had_effect,
+    -- ungradable by flash/damage, so excluded from both numerator and denominator).
+    ROUND(100.0*SUM(CASE WHEN ge.had_effect THEN 1 END)
+          /NULLIF(COUNT(*) FILTER (WHERE ge.had_effect IS NOT NULL),0),1)   AS effective_pct,
     ROUND(AVG(ge.enemies_flashed),2)                                        AS avg_enemies_flashed,
     ROUND(AVG(ge.teammates_flashed),2)                                      AS avg_teammates_flashed,
     ROUND(AVG(ge.damage_dealt),1)                                           AS avg_damage,
-    SUM(CASE WHEN NOT ge.had_effect THEN 1 ELSE 0 END)                     AS wasted_throws
+    SUM(CASE WHEN ge.had_effect = FALSE THEN 1 ELSE 0 END)                  AS wasted_throws
 FROM grenade_events ge
 JOIN matches m USING (match_id)
 JOIN player_rounds pr ON pr.match_id = ge.match_id AND pr.round_num = ge.round_num
