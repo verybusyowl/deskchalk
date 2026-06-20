@@ -947,13 +947,35 @@ async function loadTeamContext() {
     <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-4)">context for your stats</span>
   </div>`;
 
+  // entries (opening duels) — win% is the headline, role context below
+  const ewp = s.entry_win_pct == null ? null : +s.entry_win_pct;
+  const entryTone = ewp == null ? 'neutral' : ewp >= 55 ? 'good' : ewp < 45 ? 'bad' : 'neutral';
+  const entryTxt  = ewp == null ? 'no data' : ewp >= 55 ? 'winning entries' : ewp < 45 ? 'losing entries' : 'even';
+  const entryCard = `<div class="o-card" style="padding:var(--space-4);display:flex;flex-direction:column;gap:6px">
+    <span class="dc-label" style="color:var(--text-3)">Opening duels</span>
+    <span class="dc-stat" style="font-size:var(--fs-2xl);line-height:1">${ewp==null?'—':fmtNum(ewp,0)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600">% won</span></span>
+    <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-4)">${s.avg_my_entries==null?'—':fmtNum(s.avg_my_entries,1)}/game · team ${s.avg_team_entries==null?'—':fmtNum(s.avg_team_entries,1)}</span>
+    ${badge(entryTxt, entryTone, 'sm')}
+  </div>`;
+
   const cards = [
     cmp('Your ADR', s.avg_my_adr, s.avg_team_adr, '', true),
     cmp('Your KAST', s.avg_my_kast, s.avg_team_kast, '%', true),
     cmp('Trades you make', s.avg_my_trades, s.avg_team_trades, '', true),
+    entryCard,
     rankCard,
     enemyCard,
   ].join('');
+
+  // synthesized coaching verdict — role + the one weakness worth fixing
+  const dg = data.diagnosis || {};
+  const dgBorder = dg.tone === 'good' ? 'var(--mint)' : dg.tone === 'warn' ? 'var(--orange)' : 'var(--text-4)';
+  const dgIcon   = dg.tone === 'good' ? 'shield-check' : dg.tone === 'warn' ? 'target' : 'compass';
+  const verdict = dg.headline ? `<div class="dc-heat-insight" style="border-left-color:${dgBorder};margin-top:var(--space-4)">
+      <i data-lucide="${dgIcon}" class="dc-heat-ico" style="color:${dgBorder}"></i>
+      <div><div class="dc-heat-headline">${esc(dg.headline)}</div>
+        <div class="dc-heat-detail">${esc(dg.detail || '')}</div></div>
+    </div>` : '';
 
   const tradedFor = s.avg_my_traded_for;
   const tradedNote = tradedFor == null ? '' :
@@ -982,7 +1004,8 @@ async function loadTeamContext() {
 
   host.innerHTML = `<div style="margin-top:var(--space-6)">
     ${sectionLabel('Team & enemy context', `<span style="color:var(--text-4);font-size:11px;font-family:var(--font-mono)">${s.matches} matches</span>`)}
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-3)">${cards}</div>
+    ${verdict}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--space-3);margin-top:var(--space-3)">${cards}</div>
     ${tradedNote}
     <div style="margin-top:var(--space-4)">${card(table)}</div>
   </div>`;

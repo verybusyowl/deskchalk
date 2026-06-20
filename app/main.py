@@ -921,6 +921,83 @@ def api_map_fundamentals(map: str = Query(...), refresh: int = Query(0)):
     finally:
         conn.close()
 
+TEAM_MIN_SAMPLE = 5  # below this many multi-player matches, don't diagnose a role
+
+def _team_diagnosis(s: dict) -> dict:
+    """Turn the team-relative career numbers into ONE prioritized coaching verdict:
+    a role label + the single most fixable weakness (the deficit that's furthest
+    below a healthy bar), or a positive note if you're carrying across the board.
+    Deterministic — same inputs always give the same advice. Gated on sample size."""
+    n = s.get("matches") or 0
+    if n < TEAM_MIN_SAMPLE:
+        return {"enough": False, "tone": "info",
+                "headline": f"{n} multi-player match{'es' if n != 1 else ''} so far",
+                "detail": "Your role and team-relative weaknesses sharpen after a few "
+                          "more demos parse. Drop recent demos in ./demos to speed this up."}
+
+    fnum = lambda v: None if v is None else float(v)
+    rank   = fnum(s.get("avg_team_rank"))
+    my_adr, team_adr   = fnum(s.get("avg_my_adr")),   fnum(s.get("avg_team_adr"))
+    my_kast, team_kast = fnum(s.get("avg_my_kast")),  fnum(s.get("avg_team_kast"))
+    traded_for         = fnum(s.get("avg_my_traded_for"))
+    my_entries, team_entries = fnum(s.get("avg_my_entries")), fnum(s.get("avg_team_entries"))
+    entry_win          = fnum(s.get("entry_win_pct"))
+
+    # Role label from where you frag relative to the team + how much you entry.
+    if rank is not None and rank <= 2.0:
+        role = "primary fragger"
+    elif rank is not None and rank >= 4.0:
+        role = "support / bottom-frag"
+    else:
+        role = "mid-order fragger"
+    if (my_entries is not None and team_entries is not None
+            and team_entries > 0 and my_entries >= 1.4 * team_entries):
+        role = "entry fragger"
+
+    # Candidate weaknesses: (normalized_deficit, headline_clause, prescription, tone).
+    # normalized so a 30%-traded gap and a 25-ADR gap are comparable; flag at ~0.15.
+    cands = []
+    if traded_for is not None and traded_for < 50:
+        cands.append(((50 - traded_for) / 50,
+            f"only {traded_for:.0f}% of your deaths get traded",
+            "You die isolated. Stay within trade range of a teammate — especially on entries — "
+            "so your death costs the enemy a man instead of the round."))
+    if my_kast is not None and team_kast is not None and my_kast < team_kast:
+        cands.append(((team_kast - my_kast) / 20,
+            f"your KAST is {my_kast:.0f}% vs team {team_kast:.0f}%",
+            "You're impacting fewer rounds than your teammates. Get a kill, an assist, "
+            "a trade, or just survive — contribute something every round instead of going even-or-nothing."))
+    if my_adr is not None and team_adr is not None and my_adr < team_adr:
+        cands.append(((team_adr - my_adr) / 30,
+            f"your ADR is {my_adr:.0f} vs team {team_adr:.0f}",
+            "You're below your team's damage output. Use utility for guaranteed chip damage and "
+            "take map with the team rather than hunting picks you don't convert."))
+    if entry_win is not None and my_entries is not None and my_entries >= 1.5 and entry_win < 45:
+        cands.append(((45 - entry_win) / 45,
+            f"you win only {entry_win:.0f}% of your opening duels",
+            "Your entries aren't landing. Stop dry-peeking first contact — flash yourself in, "
+            "wide-swing with a teammate ready to trade, or give the entry to someone else."))
+
+    art = "an" if role[:1].lower() in "aeiou" else "a"
+    flagged = [c for c in cands if c[0] >= 0.15]
+    if not flagged:
+        # nothing notably weak — you're pulling your weight or carrying
+        at_above = s.get("pct_at_or_above_team")
+        detail = "You're holding your own across fragging, trading and impact. "
+        if rank is not None and rank <= 2.0:
+            detail = (f"You're the {role} — top of the scoreboard most games"
+                      + (f" and above team ADR in {at_above:.0f}% of them. " if at_above is not None else ". ")
+                      + "Your next gain is team value: opening picks, util, and setting up teammates.")
+        else:
+            detail += "Push for more opening impact and util usage to climb from solid to carrying."
+        return {"enough": True, "tone": "good", "role": role,
+                "headline": f"You're {art} {role} pulling your weight", "detail": detail}
+
+    top = max(flagged, key=lambda c: c[0])
+    sev, clause, advice = top[0], top[1], top[2]
+    return {"enough": True, "tone": "warn" if sev >= 0.3 else "info", "role": role,
+            "headline": f"You're {art} {role}, but {clause}", "detail": advice}
+
 @app.get("/api/team_relative")
 def api_team_relative(limit: int = Query(15)):
     """Team + enemy context: your output vs your team, opponent strength, and
@@ -937,11 +1014,13 @@ def api_team_relative(limit: int = Query(15)):
                        es.enemy_avg_kd, es.enemy_avg_adr, es.enemy_top_kd,
                        ti.my_traded_for_pct, ti.team_avg_traded_for_pct,
                        ti.my_trades_made, ti.team_avg_trades_made,
-                       ri.my_kast_pct, ri.team_avg_kast_pct
+                       ri.my_kast_pct, ri.team_avg_kast_pct,
+                       ei.my_entries, ei.my_entry_win_pct, ei.team_avg_entries
                 FROM v_team_relative tr
                 LEFT JOIN v_enemy_strength es USING (match_id)
                 LEFT JOIN v_trade_impact   ti USING (match_id)
                 LEFT JOIN v_round_impact   ri USING (match_id)
+                LEFT JOIN v_entry_impact   ei USING (match_id)
                 ORDER BY tr.played_at DESC NULLS LAST
                 LIMIT %s""", (limit,))
             matches = [dict(r) for r in c.fetchall()]
@@ -963,7 +1042,18 @@ def api_team_relative(limit: int = Query(15)):
                                 ROUND(AVG(my_traded_for_pct),1)    AS avg_my_traded_for
                          FROM v_trade_impact WHERE my_trades_made IS NOT NULL""")
             summary.update(dict(c.fetchone() or {}))
-        return _j({"summary": summary, "matches": matches})
+            c.execute("""SELECT ROUND(AVG(my_entries),1)       AS avg_my_entries,
+                                ROUND(AVG(team_avg_entries),1)  AS avg_team_entries,
+                                SUM(my_entry_kills)             AS tot_entry_kills,
+                                SUM(my_entry_deaths)            AS tot_entry_deaths
+                         FROM v_entry_impact WHERE my_entries IS NOT NULL""")
+            summary.update(dict(c.fetchone() or {}))
+            ek = summary.get("tot_entry_kills"); ed = summary.get("tot_entry_deaths")
+            ek = None if ek is None else int(ek); ed = None if ed is None else int(ed)
+            summary["tot_entry_kills"], summary["tot_entry_deaths"] = ek, ed
+            summary["entry_win_pct"] = (round(100.0*ek/(ek+ed), 1)
+                                        if ek is not None and ed is not None and (ek+ed) else None)
+        return _j({"summary": summary, "diagnosis": _team_diagnosis(summary), "matches": matches})
     finally:
         conn.close()
 

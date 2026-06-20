@@ -134,3 +134,31 @@ SELECT a.match_id, m.map, m.played_at,
 FROM ally a JOIN matches m USING (match_id)
 GROUP BY a.match_id, m.map, m.played_at
 ORDER BY m.played_at DESC;
+
+-- Per-match: entry (opening-duel) involvement and success — you vs team.
+-- entry_kills = rounds you took the opening kill; entry_deaths = rounds you took
+-- the opening death; my_entries = opening duels you were in; entry_win_pct = how
+-- many of those you won. Surfaces whether you're the entry and if it's working.
+CREATE OR REPLACE VIEW v_entry_impact AS
+WITH me_side AS (
+    SELECT match_id, round_num, side FROM round_player_stats WHERE is_me
+),
+ally AS (
+    SELECT r.match_id, r.steamid, bool_or(r.is_me) AS is_me,
+           SUM(CASE WHEN r.opening_kill  THEN 1 ELSE 0 END) AS entry_kills,
+           SUM(CASE WHEN r.opening_death THEN 1 ELSE 0 END) AS entry_deaths
+    FROM round_player_stats r
+    JOIN me_side ms ON ms.match_id = r.match_id AND ms.round_num = r.round_num
+                   AND ms.side = r.side
+    GROUP BY r.match_id, r.steamid
+)
+SELECT a.match_id, m.map, m.played_at,
+    MAX(CASE WHEN a.is_me THEN a.entry_kills END)                  AS my_entry_kills,
+    MAX(CASE WHEN a.is_me THEN a.entry_deaths END)                 AS my_entry_deaths,
+    MAX(CASE WHEN a.is_me THEN a.entry_kills + a.entry_deaths END) AS my_entries,
+    MAX(CASE WHEN a.is_me THEN ROUND(100.0*a.entry_kills
+              /NULLIF(a.entry_kills + a.entry_deaths,0),1) END)    AS my_entry_win_pct,
+    ROUND(AVG(a.entry_kills + a.entry_deaths),1)                   AS team_avg_entries
+FROM ally a JOIN matches m USING (match_id)
+GROUP BY a.match_id, m.map, m.played_at
+ORDER BY m.played_at DESC;
