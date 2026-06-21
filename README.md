@@ -53,6 +53,17 @@ docker compose -f docker-compose.public.yml --profile demos up -d
 
 > **Maintainer note:** on a public release this repo ships `docker-compose.public.yml` as `docker-compose.yml`, so the install is a plain `docker compose up -d`.
 
+### Try it with sample data
+
+Want to see a fully-populated dashboard before connecting your own accounts? Load the bundled **anonymized** demo set (real gameplay stats and map positions; every nickname, ID and sharecode is fake — the owner shows as "You"):
+
+```bash
+docker compose -f docker-compose.public.yml exec -T db \
+  sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < db/seed_demo.sql
+```
+
+Then refresh **http://localhost:5608** — the overview, honesty score, tilt, what-if and team context all fill in. It's opt-in, so your own data is never mixed with the demo. To start clean again, `docker compose ... down -v` and bring the stack back up.
+
 ## Container engines
 
 DeskChalk is plain OCI containers + a standard Compose file, so it runs on any of these — pick whichever you already have. The commands are interchangeable:
