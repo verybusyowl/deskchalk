@@ -957,6 +957,7 @@ async function loadHonesty() {
   const border = d.tone === 'good' ? 'var(--mint)' : d.tone === 'warn' ? 'var(--orange)' : 'var(--text-4)';
   const estColor = d.tone === 'good' ? 'var(--mint)' : d.tone === 'warn' ? 'var(--orange)' : 'var(--text-2)';
   const lvl = v => v == null ? '—' : 'LVL ' + v;
+  const ordSuffix = x => { x = Math.round(x); return (x % 100 >= 10 && x % 100 <= 20) ? 'th' : ({1:'st',2:'nd',3:'rd'}[x % 10] || 'th'); };
   const badgeTone = d.tone === 'good' ? 'good' : d.tone === 'warn' ? 'bad' : 'neutral';
 
   host.innerHTML = `<div style="margin-top:var(--space-6)">
@@ -972,7 +973,7 @@ async function loadHonesty() {
             <div style="font-family:var(--font-mono);font-size:28px;line-height:1.1;color:var(--text-2)">${lvl(d.current_level)}</div></div>
         </div>
         <div style="text-align:right">
-          <div class="dc-stat" style="font-size:var(--fs-2xl);line-height:1">${fmtNum(d.avg_percentile,0)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600">th pctl</span></div>
+          <div class="dc-stat" style="font-size:var(--fs-2xl);line-height:1">${fmtNum(d.avg_percentile,0)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600">${ordSuffix(d.avg_percentile)} pctl</span></div>
           <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-4);margin:4px 0 6px">#${fmtNum(d.avg_lobby_rank,1)} of ${fmtNum(d.avg_lobby_size,0)} in lobby · fair = 50th</div>
           ${badge(d.verdict, badgeTone, 'sm')}
         </div>

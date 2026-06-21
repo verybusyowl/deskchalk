@@ -1256,14 +1256,18 @@ def api_honesty():
         why = "your badge matches how you actually play."
         est_level, est_elo = level, elo  # within the fair band — don't imply a different rank
 
+    def _ord(x):  # 1->1st, 41->41st, 12->12th
+        x = int(round(x)); s = "th" if 10 <= x % 100 <= 20 else {1:"st",2:"nd",3:"rd"}.get(x % 10, "th")
+        return f"{x}{s}"
+
     trend = ""
     if recent_pct is not None:
         rp = float(recent_pct)
-        if rp - avg_pct >= 8:   trend = f" Last 10 you're trending up ({rp:.0f}th vs {avg_pct:.0f}th career) — heating up."
-        elif avg_pct - rp >= 8: trend = f" Last 10 you're sliding ({rp:.0f}th vs {avg_pct:.0f}th career) — watch for a dip."
+        if rp - avg_pct >= 8:   trend = f" Last 10 you're trending up ({_ord(rp)} vs {_ord(avg_pct)} career) — heating up."
+        elif avg_pct - rp >= 8: trend = f" Last 10 you're sliding ({_ord(rp)} vs {_ord(avg_pct)} career) — watch for a dip."
 
     detail = (f"Across {n} games you average #{avg_rank:.1f} of {avg_size:.0f} in your lobbies "
-              f"({avg_pct:.0f}th percentile). A correctly-placed player sits ~50th — {why}{trend}")
+              f"({_ord(avg_pct)} percentile). A correctly-placed player sits ~50th — {why}{trend}")
     return _j({"enough": True, "tone": tone, "verdict": verdict, "n": n,
                "avg_percentile": avg_pct, "avg_lobby_rank": avg_rank, "avg_lobby_size": avg_size,
                "current_level": level, "estimated_level": est_level,
@@ -1422,6 +1426,8 @@ def api_whatif():
         if p_cln <= p_bad:          # fixing it doesn't correlate with winning — don't claim a gain
             continue
         gained = bad * ((p_cln - p_bad) / 100.0) * WHATIF_REDUCTION / matches
+        if gained < 0.1:            # negligible — don't surface a "+0 rds/match" line
+            continue
         fixes.append({"fix": label, "advice": advice,
                       "rounds_per_match": round(gained, 1),
                       "win_in_bad": round(p_bad, 0), "win_in_clean": round(p_cln, 0),
@@ -3791,6 +3797,13 @@ def api_faceit_overview(days: int = Query(90)):
                 WHERE played_at > now() - INTERVAL '{days} days'
             """)
             kpis = dict(c.fetchone() or {})
+            # Live profile Elo/level over the lagging latest-match snapshot.
+            c.execute("SELECT current_elo, current_level FROM faceit_profile WHERE id=1")
+            _pf = c.fetchone()
+            if _pf and _pf.get("current_elo") is not None:
+                kpis["latest_elo"] = _pf["current_elo"]
+                if _pf.get("current_level") is not None:
+                    kpis["faceit_level"] = _pf["current_level"]
 
             c.execute(f"""
                 SELECT to_char(played_at,'MM-DD HH24:MI') AS "when",
