@@ -1346,6 +1346,85 @@ def api_tilt():
         conn.close()
     return _j(_tilt_verdict(rows))
 
+WHATIF_MIN_ROUNDS = 120   # total rounds of demo data before projecting
+WHATIF_MIN_BAD = 20       # a lever needs this many "bad" rounds to be projectable
+WHATIF_REDUCTION = 0.5    # you can realistically halve a habit, not erase it
+
+# (label, bad-round predicate, comparison "clean" predicate, fix advice). Each
+# lever compares WITHIN a controlled set (mostly death rounds) so the win-rate
+# gap reflects the habit itself, not just "you died this round".
+WHATIF_LEVERS = [
+    ("dying untraded", "(pr.deaths>0 AND NOT pr.traded_death)", "(pr.deaths>0 AND pr.traded_death)",
+     "trade up — stay inside a teammate's reach so your death costs the enemy a man"),
+    ("losing the opening duel", "pr.opening_death", "(pr.deaths>0 AND NOT pr.opening_death)",
+     "stop dry-peeking first contact — flash in or let a teammate take the entry"),
+    ("dying while flashed", "(pr.deaths>0 AND pr.death_blinded)", "(pr.deaths>0 AND NOT pr.death_blinded)",
+     "turn off pop-flashes — never hold an angle blind"),
+    ("dying with unused utility", "(pr.deaths>0 AND pr.death_unused_util>0)", "(pr.deaths>0 AND pr.death_unused_util=0)",
+     "throw your nades before you die — held utility wins nothing"),
+]
+
+@app.get("/api/whatif")
+def api_whatif():
+    """What-if simulator. For each fixable habit, compares your round-win rate in
+    rounds WHERE it happens vs where it doesn't, then projects the rounds/match
+    you'd gain by halving it (WHATIF_REDUCTION). Your own per-round demo data —
+    a lever only shows if it has enough bad rounds AND clean rounds win more."""
+    sel = ",\n".join(
+        f"COUNT(*) FILTER (WHERE {bad}) AS bad_{i},"
+        f"COUNT(*) FILTER (WHERE {bad} AND pr.round_won) AS badw_{i},"
+        f"COUNT(*) FILTER (WHERE {cln}) AS cln_{i},"
+        f"COUNT(*) FILTER (WHERE {cln} AND pr.round_won) AS clnw_{i}"
+        for i, (_, bad, cln, _) in enumerate(WHATIF_LEVERS)
+    )
+    conn = _db()
+    try:
+        with conn.cursor() as c:
+            c.execute(f"""SELECT COUNT(*) AS total, COUNT(DISTINCT pr.match_id) AS matches,
+                          {sel}
+                          FROM player_rounds pr JOIN matches m USING(match_id)
+                          WHERE COALESCE(m.platform,'mm')='mm'""")
+            r = dict(c.fetchone() or {})
+    finally:
+        conn.close()
+
+    total = r.get("total") or 0
+    matches = r.get("matches") or 0
+    if total < WHATIF_MIN_ROUNDS or not matches:
+        return _j({"enough": False, "tone": "info", "rounds": total,
+                   "headline": f"{total} rounds of demo data so far",
+                   "detail": f"What-if needs {WHATIF_MIN_ROUNDS}+ rounds to project a fix honestly. "
+                             "Parse more Matchmaking demos and your highest-leverage habit will surface here."})
+
+    fixes = []
+    for i, (label, _bad, _cln, advice) in enumerate(WHATIF_LEVERS):
+        bad, badw = r[f"bad_{i}"], r[f"badw_{i}"]
+        cln, clnw = r[f"cln_{i}"], r[f"clnw_{i}"]
+        if bad < WHATIF_MIN_BAD or cln == 0:
+            continue
+        p_bad = 100.0 * badw / bad
+        p_cln = 100.0 * clnw / cln
+        if p_cln <= p_bad:          # fixing it doesn't correlate with winning — don't claim a gain
+            continue
+        gained = bad * ((p_cln - p_bad) / 100.0) * WHATIF_REDUCTION / matches
+        fixes.append({"fix": label, "advice": advice,
+                      "rounds_per_match": round(gained, 1),
+                      "win_in_bad": round(p_bad, 0), "win_in_clean": round(p_cln, 0),
+                      "bad_per_match": round(bad / matches, 1)})
+    fixes.sort(key=lambda f: f["rounds_per_match"], reverse=True)
+
+    if not fixes:
+        return _j({"enough": True, "tone": "good", "rounds": total, "fixes": [],
+                   "headline": "No single habit is costing you rounds",
+                   "detail": "None of the tracked mistakes correlate with losing more for you right now — "
+                             "your round losses are spread evenly. Keep the focus on raw mechanics."})
+    top = fixes[0]
+    return _j({"enough": True, "tone": "info", "rounds": total, "fixes": fixes[:4],
+               "headline": f"Fix {top['fix']} → ~+{top['rounds_per_match']} rounds won / match",
+               "detail": f"You win {top['win_in_clean']:.0f}% of rounds without it vs "
+                         f"{top['win_in_bad']:.0f}% with it ({top['bad_per_match']}/match). "
+                         f"Halving it projects the gain above — {top['advice']}."})
+
 # ── Today's Focus engine ───────────────────────────────────────────────────────
 # Deterministic picker chooses the weakest Tier-1 metric; Claude only writes
 # the advice. Focus persists in focus_log so progress is measurable (Phase 3).

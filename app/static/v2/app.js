@@ -416,6 +416,9 @@ async function loadOverview() {
       <!-- Team & enemy context (filled async by loadTeamContext) -->
       <div id="team-context"></div>
 
+      <!-- What-if simulator (filled async by loadWhatif) -->
+      <div id="whatif"></div>
+
       <!-- Bench + context -->
       <div class="dc-two-col">
 
@@ -452,6 +455,7 @@ async function loadOverview() {
     loadTilt();         // live-session tilt alert, failure-isolated
     loadHonesty();      // reverse-Elo honesty score, failure-isolated
     loadTeamContext();  // team + enemy panel, failure-isolated
+    loadWhatif();       // what-if fix projections, failure-isolated
     el.querySelectorAll('.ask-open').forEach(b => b.addEventListener('click', openAsk));
     el.querySelectorAll('[data-map-goto]').forEach(b => {
       b.addEventListener('click', () => { S.map = b.dataset.mapGoto; setView('maps'); });
@@ -900,6 +904,30 @@ async function sendAsk(question) {
 // Your output vs your own team, opponent strength, and trade involvement.
 // Backed by round_player_stats (all 10 players), populated on demos parsed
 // after the 2026-06-19 multi-player update.
+
+async function loadWhatif() {
+  const host = document.getElementById('whatif');
+  if (!host) return;
+  let d;
+  try { d = await fetchJSON('/api/whatif'); } catch (e) { host.innerHTML = ''; return; }
+  if (!d || !d.enough) { host.innerHTML = ''; return; }
+  const fixes = d.fixes || [];
+  const rows = fixes.map((f, i) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);padding:9px 0;${i ? 'border-top:1px solid var(--line)' : ''}">
+      <div style="min-width:0">
+        <div style="font-size:var(--fs-sm);color:var(--text-2);text-transform:capitalize">${esc(f.fix)}</div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-4)">win ${fmtNum(f.win_in_clean,0)}% without vs ${fmtNum(f.win_in_bad,0)}% with · ${fmtNum(f.bad_per_match,1)}/match</div>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:var(--fs-md);color:var(--mint);white-space:nowrap">+${fmtNum(f.rounds_per_match,1)}<span style="font-size:0.8em;color:var(--text-4)"> rds/match</span></div>
+    </div>`).join('');
+  const body = fixes.length
+    ? `<div style="font-size:var(--fs-sm);color:var(--text-3);margin-bottom:6px">Projected rounds/match if you halve each habit — from your own demos.</div>${rows}`
+    : `<div style="font-size:var(--fs-sm);color:var(--text-3)">${esc(d.detail)}</div>`;
+  host.innerHTML = `<div style="margin-top:var(--space-6)">
+    ${sectionLabel('What-if simulator', `<span style="color:var(--text-4);font-size:11px;font-family:var(--font-mono)">${d.rounds} rounds</span>`)}
+    ${card(body)}
+  </div>`;
+  lucide.createIcons();
+}
 
 async function loadTilt() {
   const host = document.getElementById('tilt-alert');
