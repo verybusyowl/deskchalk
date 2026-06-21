@@ -407,6 +407,9 @@ async function loadOverview() {
         </div>
       </div>
 
+      <!-- Tilt detector — live session alert (filled async by loadTilt) -->
+      <div id="tilt-alert"></div>
+
       <!-- Reverse-Elo honesty score (filled async by loadHonesty) -->
       <div id="honesty-score"></div>
 
@@ -446,6 +449,7 @@ async function loadOverview() {
     document.getElementById('focus-refresh')?.addEventListener('click', refreshFocus);
     document.getElementById('brief-refresh')?.addEventListener('click', refreshBrief);
     document.getElementById('maps-link')?.addEventListener('click', () => setView('maps'));
+    loadTilt();         // live-session tilt alert, failure-isolated
     loadHonesty();      // reverse-Elo honesty score, failure-isolated
     loadTeamContext();  // team + enemy panel, failure-isolated
     el.querySelectorAll('.ask-open').forEach(b => b.addEventListener('click', openAsk));
@@ -896,6 +900,24 @@ async function sendAsk(question) {
 // Your output vs your own team, opponent strength, and trade involvement.
 // Backed by round_player_stats (all 10 players), populated on demos parsed
 // after the 2026-06-19 multi-player update.
+
+async function loadTilt() {
+  const host = document.getElementById('tilt-alert');
+  if (!host) return;
+  let d;
+  try { d = await fetchJSON('/api/tilt'); } catch (e) { host.innerHTML = ''; return; }
+  if (!d || !d.enough) { host.innerHTML = ''; return; }  // quiet unless there's a real session to read
+  const border = d.tone === 'good' ? 'var(--mint)' : d.tone === 'warn' ? 'var(--orange)' : 'var(--text-4)';
+  const icon   = d.tone === 'warn' ? 'triangle-alert' : 'activity';
+  host.innerHTML = `<div style="margin-top:var(--space-5)">
+    <div class="dc-heat-insight" style="border-left-color:${border}">
+      <i data-lucide="${icon}" class="dc-heat-ico" style="color:${border}"></i>
+      <div><div class="dc-heat-headline">${esc(d.headline)}</div>
+        <div class="dc-heat-detail">${esc(d.detail)}</div></div>
+    </div>
+  </div>`;
+  lucide.createIcons();
+}
 
 async function loadHonesty() {
   const host = document.getElementById('honesty-score');

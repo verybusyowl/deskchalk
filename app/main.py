@@ -1255,6 +1255,97 @@ def api_honesty():
                "current_elo": elo, "estimated_elo": est_elo,
                "headline": lead, "detail": detail})
 
+TILT_GAP_HOURS = 2.5      # gap longer than this starts a new session
+TILT_MIN_SESSION = 3      # need at least this many games in the latest session
+
+def _tilt_verdict(rows: list) -> dict:
+    """rows = recent FACEIT matches NEWEST-first, each with played_at/won/adr/
+    opening_kills/opening_deaths. Returns the tilt verdict for the latest session."""
+    rows = list(reversed(rows))  # oldest → newest
+    if not rows:
+        return {"enough": False, "tone": "info",
+                "headline": "No FACEIT matches yet", "detail": "Tilt reads your live session once you've queued some games."}
+
+    # split into sessions by gap, keep the most recent
+    sessions, cur = [], [rows[0]]
+    for prev, m in zip(rows, rows[1:]):
+        gap_h = (m["played_at"] - prev["played_at"]).total_seconds() / 3600.0
+        if gap_h > TILT_GAP_HOURS:
+            sessions.append(cur); cur = [m]
+        else:
+            cur.append(m)
+    sessions.append(cur)
+    s = sessions[-1]
+    n = len(s)
+    if n < TILT_MIN_SESSION:
+        return {"enough": False, "tone": "info", "session_len": n,
+                "headline": f"Last session was {n} game{'s' if n != 1 else ''}",
+                "detail": "Too short to call tilt — the detector kicks in once you string a few games together."}
+
+    avg = lambda xs: (sum(xs) / len(xs)) if xs else 0.0
+    ewp = lambda m: (100.0 * m["opening_kills"] / (m["opening_kills"] + m["opening_deaths"])
+                     if (m["opening_kills"] + m["opening_deaths"]) else None)
+    half = n // 2
+    front, tail = s[:half] if half else s[:1], s[-half:] if half else s[-1:]
+    adr_d = avg([m["adr"] for m in tail]) - avg([m["adr"] for m in front])
+    e_front = [ewp(m) for m in front if ewp(m) is not None]
+    e_tail  = [ewp(m) for m in tail if ewp(m) is not None]
+    entry_d = (avg(e_tail) - avg(e_front)) if (e_front and e_tail) else 0.0
+    tail_wins = sum(1 for m in tail if m["won"])
+    tail_wr = 100.0 * tail_wins / len(tail)
+    # losing streak from the end
+    streak = 0
+    for m in reversed(s):
+        if not m["won"]: streak += 1
+        else: break
+
+    declining = adr_d <= -8 or entry_d <= -12
+    losing = tail_wr < 50
+    parts = []
+    if adr_d <= -5:   parts.append(f"ADR down {abs(adr_d):.0f}")
+    if entry_d <= -8: parts.append(f"entries down {abs(entry_d):.0f}%")
+    if streak >= 2:   parts.append(f"{streak} straight losses")
+    decay = ", ".join(parts) if parts else "no clear slide"
+
+    if declining and losing:
+        tone, head = "warn", "You're tilting — stop queuing."
+        detail = (f"{n} games deep this session and decaying ({decay}). "
+                  "This is the part of the night where you give ELO back. Log off, "
+                  "or run a deathmatch to reset — don't queue another competitive.")
+    elif streak >= 3:
+        tone, head = "warn", f"{streak} losses in a row — step away."
+        detail = (f"{n}-game session, {decay}. A losing streak this long rarely turns "
+                  "around in the same sitting. Take a break before the next queue.")
+    elif declining or losing:
+        tone, head = "info", "Starting to slip."
+        detail = (f"{n} games in, {decay}. Not full tilt yet, but the trend is the wrong way — "
+                  "win the next one cleanly or call it.")
+    else:
+        tone, head = "good", "Holding up — keep going."
+        detail = (f"{n}-game session and steady ({tail_wins}/{len(tail)} in the back half, {decay}). "
+                  "No decay signal — you're still playing your game.")
+
+    return {"enough": True, "tone": tone, "session_len": n,
+            "adr_delta": round(adr_d, 1), "entry_delta": round(entry_d, 1),
+            "tail_win_pct": round(tail_wr, 0), "loss_streak": streak,
+            "headline": head, "detail": detail}
+
+@app.get("/api/tilt")
+def api_tilt():
+    """Tilt detector — see _tilt_verdict. Reads your latest FACEIT session for
+    decay (ADR/entry sliding, losing tail) and says it out loud when you're done."""
+    conn = _db()
+    try:
+        with conn.cursor() as c:
+            c.execute("""SELECT played_at, won, adr, kd_ratio, opening_kills, opening_deaths
+                         FROM faceit_matches
+                         WHERE played_at IS NOT NULL AND adr IS NOT NULL
+                         ORDER BY played_at DESC LIMIT 40""")
+            rows = [dict(r) for r in c.fetchall()]
+    finally:
+        conn.close()
+    return _j(_tilt_verdict(rows))
+
 # ── Today's Focus engine ───────────────────────────────────────────────────────
 # Deterministic picker chooses the weakest Tier-1 metric; Claude only writes
 # the advice. Focus persists in focus_log so progress is measurable (Phase 3).
