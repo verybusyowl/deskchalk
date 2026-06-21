@@ -221,6 +221,10 @@ def main():
                     opening_kills INT DEFAULT 0, opening_deaths INT DEFAULT 0,
                     PRIMARY KEY (faceit_match_id, player_id));
                 CREATE INDEX IF NOT EXISTS idx_fpms_match ON faceit_player_match_stats(faceit_match_id);
+                CREATE TABLE IF NOT EXISTS faceit_profile (
+                    id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+                    current_elo INT, current_level INT,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
             """)
         c0.commit(); c0.close()
     except Exception as e:
@@ -409,11 +413,22 @@ def main():
 
             conn.close()
 
-            # Refresh current ELO each cycle
+            # Refresh current ELO each cycle + persist it as the live profile so
+            # the dashboard shows real current Elo, not the latest match snapshot.
             try:
                 _, current_elo, current_level = get_player_id(FACEIT_NICKNAME)
-            except Exception:
-                pass
+                if current_elo is not None:
+                    conn2 = db()
+                    with conn2.cursor() as c:
+                        c.execute("""INSERT INTO faceit_profile (id, current_elo, current_level, updated_at)
+                                     VALUES (1, %s, %s, now())
+                                     ON CONFLICT (id) DO UPDATE
+                                     SET current_elo=EXCLUDED.current_elo,
+                                         current_level=EXCLUDED.current_level, updated_at=now()""",
+                                  (current_elo, current_level))
+                    conn2.commit(); conn2.close()
+            except Exception as e:
+                log(f"  warn: profile update failed: {e}")
 
         except Exception as e:
             log(f"ERROR: {e}", file=sys.stderr)

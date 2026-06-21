@@ -110,6 +110,11 @@ async def _startup():
                     PRIMARY KEY (faceit_match_id, player_id)
                 );
                 CREATE INDEX IF NOT EXISTS idx_fpms_match ON faceit_player_match_stats(faceit_match_id);
+                CREATE TABLE IF NOT EXISTS faceit_profile (
+                    id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+                    current_elo INT, current_level INT,
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
                 CREATE OR REPLACE VIEW v_faceit_team_relative AS
                 WITH me AS (SELECT faceit_match_id, faction FROM faceit_player_match_stats WHERE is_me),
                 ally AS (
@@ -667,6 +672,12 @@ def _build_brief(conn, map_filter, days):
             FROM faceit_matches
             WHERE played_at>=now()-(%(days)s||' days')::interval {fc_filter}""", mp)
         fc_headline = c.fetchone() or {}
+        # Prefer the live profile Elo (poller refreshes it each cycle) over the
+        # latest match's pre-match snapshot, which lags reality.
+        c.execute("SELECT current_elo FROM faceit_profile WHERE id=1")
+        _prof = c.fetchone()
+        if _prof and _prof.get("current_elo") is not None:
+            fc_headline["current_elo"] = _prof["current_elo"]
         c.execute(f"""SELECT to_char(played_at,'MM-DD') AS d, map, won,
             kd_ratio AS kd, ROUND(adr::numeric,0) AS adr, elo_change
             FROM faceit_matches WHERE TRUE {fc_filter}
@@ -1204,6 +1215,10 @@ def api_honesty():
                        ROUND((AVG(pct) FILTER (WHERE rn<=10))::numeric,1)  AS recent_pct
                 FROM mine""")
             r = dict(c.fetchone() or {})
+            # Live profile first (poller keeps it current); fall back to the
+            # latest match's snapshot only if the profile hasn't been written yet.
+            c.execute("SELECT current_elo, current_level FROM faceit_profile WHERE id=1")
+            prof = dict(c.fetchone() or {})
             c.execute("""SELECT faceit_level, faceit_elo FROM faceit_matches
                          WHERE faceit_level IS NOT NULL ORDER BY played_at DESC LIMIT 1""")
             lv = dict(c.fetchone() or {})
@@ -1211,8 +1226,8 @@ def api_honesty():
         conn.close()
 
     n = r.get("n") or 0
-    level = lv.get("faceit_level")
-    elo = lv.get("faceit_elo")
+    level = prof.get("current_level") if prof.get("current_level") is not None else lv.get("faceit_level")
+    elo = prof.get("current_elo") if prof.get("current_elo") is not None else lv.get("faceit_elo")
     if n < HONESTY_MIN_SAMPLE:
         return _j({"enough": False, "tone": "info", "n": n,
                    "headline": f"{n} FACEIT match{'es' if n != 1 else ''} with lobby data",
