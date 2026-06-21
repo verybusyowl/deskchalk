@@ -1164,6 +1164,97 @@ def api_faceit_team(limit: int = Query(15)):
     finally:
         conn.close()
 
+HONESTY_MIN_SAMPLE = 8   # FACEIT matches with all-10 data needed to judge rank
+FACEIT_ELO_PER_LEVEL = 150  # rough Elo width of a FACEIT skill level
+
+@app.get("/api/honesty")
+def api_honesty():
+    """Reverse-Elo honesty score. A correctly-placed player sits at ~50th
+    percentile of their own 10-player lobbies over time. Consistently higher =
+    the system underrates you (climb coming); lower = you're overranked, riding
+    variance or teammates. Uses the all-player FACEIT store — real lobby data,
+    no trained model. Rating per player = blend of K/D and ADR (the two stats we
+    have for every player)."""
+    conn = _db()
+    try:
+        with conn.cursor() as c:
+            c.execute("""
+                WITH rated AS (
+                    SELECT faceit_match_id, is_me,
+                           0.5*COALESCE(kd_ratio,0) + 0.5*COALESCE(adr,0)/85.0 AS rating
+                    FROM faceit_player_match_stats
+                ),
+                ranked AS (
+                    SELECT faceit_match_id, is_me,
+                           RANK() OVER (PARTITION BY faceit_match_id ORDER BY rating DESC) AS lobby_rank,
+                           COUNT(*) OVER (PARTITION BY faceit_match_id) AS lobby_size
+                    FROM rated
+                ),
+                mine AS (
+                    SELECT r.lobby_rank, r.lobby_size, fm.played_at,
+                           100.0*(r.lobby_size - r.lobby_rank)/NULLIF(r.lobby_size-1,0) AS pct,
+                           ROW_NUMBER() OVER (ORDER BY fm.played_at DESC) AS rn
+                    FROM ranked r JOIN faceit_matches fm USING (faceit_match_id)
+                    WHERE r.is_me
+                )
+                SELECT COUNT(*) AS n,
+                       ROUND(AVG(pct)::numeric,1)                          AS avg_pct,
+                       ROUND(AVG(lobby_rank)::numeric,2)                   AS avg_rank,
+                       ROUND(AVG(lobby_size)::numeric,1)                   AS avg_size,
+                       ROUND((AVG(pct) FILTER (WHERE rn<=10))::numeric,1)  AS recent_pct
+                FROM mine""")
+            r = dict(c.fetchone() or {})
+            c.execute("""SELECT faceit_level, faceit_elo FROM faceit_matches
+                         WHERE faceit_level IS NOT NULL ORDER BY played_at DESC LIMIT 1""")
+            lv = dict(c.fetchone() or {})
+    finally:
+        conn.close()
+
+    n = r.get("n") or 0
+    level = lv.get("faceit_level")
+    elo = lv.get("faceit_elo")
+    if n < HONESTY_MIN_SAMPLE:
+        return _j({"enough": False, "tone": "info", "n": n,
+                   "headline": f"{n} FACEIT match{'es' if n != 1 else ''} with lobby data",
+                   "detail": f"Need {HONESTY_MIN_SAMPLE}+ to read your rank honestly — the poller "
+                             "is backfilling all-player stats. Check back after a few more games."})
+    avg_pct = float(r["avg_pct"]); recent_pct = r.get("recent_pct")
+    avg_rank = float(r["avg_rank"]); avg_size = float(r["avg_size"])
+    # percentile gap from the 50th a fair placement implies → estimated level offset
+    level_off = round((avg_pct - 50) / 15.0)
+    est_level = max(1, min(10, level + level_off)) if level else None
+    est_elo = (elo + int(round((avg_pct - 50) / 50.0 * FACEIT_ELO_PER_LEVEL))) if elo else None
+
+    if avg_pct >= 60:
+        tone, verdict = "good", "under-ranked"
+        lead = (f"You play like level {est_level}, you're level {level}." if est_level and est_level != level
+                else "The system is underrating you.")
+        why = "climb is coming — keep queuing."
+    elif avg_pct <= 40:
+        tone, verdict = "warn", "over-ranked"
+        lead = (f"You play like level {est_level}, you're level {level}." if est_level and est_level != level
+                else "You're holding a badge above your play.")
+        why = "you're riding teammates or variance — expect a correction."
+    else:
+        tone, verdict = "info", "fairly ranked"
+        lead = f"Level {level} looks about right." if level else "You're placed about right."
+        why = "your badge matches how you actually play."
+        est_level, est_elo = level, elo  # within the fair band — don't imply a different rank
+
+    trend = ""
+    if recent_pct is not None:
+        rp = float(recent_pct)
+        if rp - avg_pct >= 8:   trend = f" Last 10 you're trending up ({rp:.0f}th vs {avg_pct:.0f}th career) — heating up."
+        elif avg_pct - rp >= 8: trend = f" Last 10 you're sliding ({rp:.0f}th vs {avg_pct:.0f}th career) — watch for a dip."
+
+    detail = (f"Across {n} games you average #{avg_rank:.1f} of {avg_size:.0f} in your lobbies "
+              f"({avg_pct:.0f}th percentile). A correctly-placed player sits ~50th — {why}{trend}")
+    return _j({"enough": True, "tone": tone, "verdict": verdict, "n": n,
+               "avg_percentile": avg_pct, "avg_lobby_rank": avg_rank, "avg_lobby_size": avg_size,
+               "current_level": level, "estimated_level": est_level,
+               "current_elo": elo, "estimated_elo": est_elo,
+               "headline": lead, "detail": detail})
+
 # ── Today's Focus engine ───────────────────────────────────────────────────────
 # Deterministic picker chooses the weakest Tier-1 metric; Claude only writes
 # the advice. Focus persists in focus_log so progress is measurable (Phase 3).

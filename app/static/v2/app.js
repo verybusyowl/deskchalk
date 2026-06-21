@@ -407,6 +407,9 @@ async function loadOverview() {
         </div>
       </div>
 
+      <!-- Reverse-Elo honesty score (filled async by loadHonesty) -->
+      <div id="honesty-score"></div>
+
       <!-- Team & enemy context (filled async by loadTeamContext) -->
       <div id="team-context"></div>
 
@@ -443,6 +446,7 @@ async function loadOverview() {
     document.getElementById('focus-refresh')?.addEventListener('click', refreshFocus);
     document.getElementById('brief-refresh')?.addEventListener('click', refreshBrief);
     document.getElementById('maps-link')?.addEventListener('click', () => setView('maps'));
+    loadHonesty();      // reverse-Elo honesty score, failure-isolated
     loadTeamContext();  // team + enemy panel, failure-isolated
     el.querySelectorAll('.ask-open').forEach(b => b.addEventListener('click', openAsk));
     el.querySelectorAll('[data-map-goto]').forEach(b => {
@@ -892,6 +896,46 @@ async function sendAsk(question) {
 // Your output vs your own team, opponent strength, and trade involvement.
 // Backed by round_player_stats (all 10 players), populated on demos parsed
 // after the 2026-06-19 multi-player update.
+
+async function loadHonesty() {
+  const host = document.getElementById('honesty-score');
+  if (!host) return;
+  let d;
+  try { d = await fetchJSON('/api/honesty'); } catch (e) { host.innerHTML = ''; return; }
+  if (!d || !d.enough) { host.innerHTML = ''; return; }  // stay quiet until the read is honest
+
+  const border = d.tone === 'good' ? 'var(--mint)' : d.tone === 'warn' ? 'var(--orange)' : 'var(--text-4)';
+  const estColor = d.tone === 'good' ? 'var(--mint)' : d.tone === 'warn' ? 'var(--orange)' : 'var(--text-2)';
+  const lvl = v => v == null ? '—' : 'LVL ' + v;
+  const badgeTone = d.tone === 'good' ? 'good' : d.tone === 'warn' ? 'bad' : 'neutral';
+
+  host.innerHTML = `<div style="margin-top:var(--space-6)">
+    ${sectionLabel('Reverse-Elo honesty score',
+      `<span style="color:var(--text-4);font-size:11px;font-family:var(--font-mono)">${d.n} games</span>`)}
+    ${card(`
+      <div style="display:flex;flex-wrap:wrap;gap:var(--space-5);justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:var(--space-5)">
+          <div><div class="dc-label" style="color:var(--text-3)">Plays like</div>
+            <div style="font-family:var(--font-mono);font-size:28px;line-height:1.1;color:${estColor}">${lvl(d.estimated_level)}</div></div>
+          <i data-lucide="move-right" style="color:var(--text-4)"></i>
+          <div><div class="dc-label" style="color:var(--text-3)">Current badge</div>
+            <div style="font-family:var(--font-mono);font-size:28px;line-height:1.1;color:var(--text-2)">${lvl(d.current_level)}</div></div>
+        </div>
+        <div style="text-align:right">
+          <div class="dc-stat" style="font-size:var(--fs-2xl);line-height:1">${fmtNum(d.avg_percentile,0)}<span style="font-size:0.4em;color:var(--text-3);font-weight:600">th pctl</span></div>
+          <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-4);margin:4px 0 6px">#${fmtNum(d.avg_lobby_rank,1)} of ${fmtNum(d.avg_lobby_size,0)} in lobby · fair = 50th</div>
+          ${badge(d.verdict, badgeTone, 'sm')}
+        </div>
+      </div>
+      <div class="dc-heat-insight" style="border-left-color:${border};margin-top:var(--space-4)">
+        <i data-lucide="gauge" class="dc-heat-ico" style="color:${border}"></i>
+        <div><div class="dc-heat-headline">${esc(d.headline)}</div>
+          <div class="dc-heat-detail">${esc(d.detail)}</div></div>
+      </div>
+    `)}
+  </div>`;
+  lucide.createIcons();
+}
 
 const TEAM_SRC_META = { faceit: 'FACEIT', mm: 'Matchmaking' };
 
