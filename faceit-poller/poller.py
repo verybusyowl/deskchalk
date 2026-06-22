@@ -11,7 +11,7 @@ Required env vars:
 Optional:
   POLL_SECONDS       — polling interval (default 600)
 """
-import os, sys, time, json
+import os, time, json
 from datetime import datetime, timezone
 
 import psycopg2
@@ -334,7 +334,7 @@ def main():
                     time.sleep(0.5)
 
                 except Exception as e:
-                    log(f"  ERROR processing {match_id}: {e}", file=sys.stderr)
+                    log(f"  ERROR processing {match_id}: {e}")
                     continue
 
             log(f"cycle complete: {new_count} new match(es) ingested")
@@ -431,7 +431,7 @@ def main():
                 log(f"  warn: profile update failed: {e}")
 
         except Exception as e:
-            log(f"ERROR: {e}", file=sys.stderr)
+            log(f"ERROR: {e}")
 
         time.sleep(POLL_SECONDS)
 

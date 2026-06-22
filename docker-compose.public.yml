@@ -49,7 +49,6 @@ services:
     volumes:
       - ./radars:/radars:ro
       - ./app/static:/app/static:ro
-      - ./videos:/app/videos
     ports:
       - "${APP_PORT:-5608}:5000"
     depends_on:

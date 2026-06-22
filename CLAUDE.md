@@ -13,12 +13,13 @@ Self-hosted CS2 analytics pipeline. Docker Compose stack in the repo root.
 ## Architecture
 
 ```
-cs2-poller   → polls Steam Web API (GetNextMatchSharingCode) → writes sharecodes to DB
-cs2-gc-client → Node.js, CS2 Game Coordinator client, fetches demo URLs (no host port)
-cs2-worker   → downloads + parses demos, writes all events to DB, builds replay JSONB
-cs2-renderer → FastAPI, PNG endpoints: /heatmap and /hitbox (port 8087)
-cs2-coach    → FastAPI, Claude-powered /ask endpoint (port 8088)
-cs2-app      → FastAPI + static SPA (port 5608) — main UI
+cs2-poller        → polls Steam Web API (GetNextMatchSharingCode) → writes sharecodes to DB
+cs2-faceit-poller → polls FACEIT Open API → writes faceit_matches + all-player stats
+cs2-gc-client     → Node.js, CS2 Game Coordinator client, fetches demo URLs (no host port)
+cs2-worker        → downloads + parses demos, writes all events to DB, builds replay JSONB
+cs2-app           → FastAPI + static SPA (host 8086 → container 5000) — main UI. Also
+                    renders heatmap/hitbox PNGs and serves the Claude coach (/ask)
+                    inline; there are NO separate renderer/coach services.
 ```
 
 All services join `webapp_app_net` (postgres) AND `cs2_net` (outbound internet).
@@ -35,10 +36,9 @@ All services join `webapp_app_net` (postgres) AND `cs2_net` (outbound internet).
 | `docker-compose.yml` | Stack definition |
 | `.env` | Secrets: STEAM_ID64, STEAM_API_KEY, MATCH_AUTH_CODE, POSTGRES_PASSWORD, ANTHROPIC_API_KEY |
 | `db/init.sql` | Schema + views (source of truth — re-apply with `docker exec -i postgres psql -U cs2user -d cs2 < db/init.sql`) |
-| `worker/worker.py` | Demo parser (~1200 lines). Parses demoparser2 output into 7 tables. |
-| `app/main.py` | FastAPI backend for SPA + /ask endpoint |
-| `app/static/index.html` | Single-file SPA (~2200 lines) |
-| `renderer/renderer.py` | Heatmap + hitbox PNG renderer |
+| `worker/worker.py` | Demo parser (~1900 lines). Parses demoparser2 output into the event tables. |
+| `app/main.py` | FastAPI backend: SPA API, heatmap/hitbox PNGs, and the Claude coach (`/ask`) |
+| `app/static/v2/` | Single-page app (`index.html` + `app.js` + `app.css`) |
 
 ## Database schema (cs2 database)
 
@@ -113,6 +113,16 @@ sudo docker logs cs2-worker --tail 50
 ## Radar calibration
 
 `map_radar_calibration` table seeded with active-duty values. If heatmap points fall off-canvas, read `game/csgo/resource/overviews/{map}.txt` from CS2 install for origin/scale.
+
+## Status (2026-06-21 — code review)
+
+- Removed dead `renderer/` and `coach/` services (superseded by inline `app/main.py`
+  endpoints) and the unused TTS/video path (`edge-tts`, `ffmpeg`, `videos/`).
+- AI endpoints (`/ask`, `/api/drills`, fundamentals, round_review, refresh_*) are now
+  rate-limited per client IP (`LLM_RATE_PER_MIN`/`LLM_RATE_PER_DAY`); session cookies use a
+  random secret when `SESSION_SECRET` is unset; the app container runs as non-root.
+- Removed the dead `/companion` route + `/api/companion_data` (v1 leftovers).
+- Live services: cs2-poller, cs2-faceit-poller, cs2-gc-client, cs2-worker, cs2-app.
 
 ## Status (2026-05-22)
 

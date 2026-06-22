@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ── imports & constants ────────────────────────────────────────────────────────
-import asyncio, base64, io, os, html as _html, json, math, re as _re, time, urllib.request as _urllib
+import asyncio, base64, io, os, html as _html, json, math, re as _re, secrets, time, urllib.request as _urllib
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -10,7 +10,7 @@ from typing import Optional
 import llm
 import markdown as md
 import psycopg2, psycopg2.extras, uvicorn
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -49,7 +49,34 @@ def _fetch_steam_profile() -> dict:
         return {}
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET", "deskchalk-local-dev"))
+# Sign session cookies with a real secret. If the operator doesn't set one we
+# generate a random per-process key rather than ship a known constant (a shared
+# default would let anyone forge a session cookie across installs).
+SESSION_SECRET = os.environ.get("SESSION_SECRET") or secrets.token_urlsafe(32)
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
+
+# ── AI endpoint abuse guard ────────────────────────────────────────────────────
+# /ask, /api/drills, fundamentals, round_review and the refresh routes each spend
+# real tokens on the owner's AI key. If the app is reachable beyond localhost an
+# unauthenticated caller could drain that key, so cap calls per client IP. Limits
+# are generous (a real solo user never hits them) and tunable via env; set
+# LLM_RATE_PER_MIN=0 to disable entirely.
+LLM_RATE_PER_MIN = int(os.environ.get("LLM_RATE_PER_MIN", "20"))
+LLM_RATE_PER_DAY = int(os.environ.get("LLM_RATE_PER_DAY", "400"))
+_llm_hits: dict = defaultdict(list)
+
+def _llm_rate_limit(request: Request):
+    if LLM_RATE_PER_MIN <= 0:
+        return
+    ip = request.client.host if request.client else "?"
+    now = time.time()
+    recent = [t for t in _llm_hits[ip] if now - t < 86400]
+    if len(recent) >= LLM_RATE_PER_DAY:
+        raise HTTPException(429, "Daily AI request limit reached — try again tomorrow.")
+    if sum(1 for t in recent if now - t < 60) >= LLM_RATE_PER_MIN:
+        raise HTTPException(429, "Too many AI requests — wait a minute and retry.")
+    recent.append(now)
+    _llm_hits[ip] = recent
 
 @app.on_event("startup")
 async def _startup():
@@ -933,7 +960,7 @@ FUNDAMENTALS_PROMPT = """You are a CS2 coach writing a one-page map guide for a 
 
 Rules: this is for SOLO QUEUE — assume no team coordination; advice must work with random teammates. Be concrete with position names. Under 350 words. If player stats are provided, anchor at least two points to them."""
 
-@app.get("/api/map_fundamentals")
+@app.get("/api/map_fundamentals", dependencies=[Depends(_llm_rate_limit)])
 def api_map_fundamentals(map: str = Query(...), refresh: int = Query(0)):
     scope = f"fund_{map}"
     conn = _db()
@@ -1678,7 +1705,7 @@ def api_todays_focus():
     finally:
         conn.close()
 
-@app.post("/api/refresh_focus")
+@app.post("/api/refresh_focus", dependencies=[Depends(_llm_rate_limit)])
 def api_refresh_focus():
     picked = _generate_focus(notify=True)
     if picked is None:
@@ -2189,8 +2216,7 @@ def api_map_detail(
 
 @app.get("/radar/{map_name}.png")
 def radar_png(map_name: str):
-    import re
-    if not re.match(r'^[a-z0-9_]+$', map_name):
+    if not _re.match(r'^[a-z0-9_]+$', map_name):
         raise HTTPException(400, "bad map name")
     p = Path(os.environ.get("RADARS_DIR", "/radars")) / f"{map_name}.png"
     if not p.exists():
@@ -2453,7 +2479,7 @@ def api_coach_brief(scope: str = Query("overview")):
     return _j({"cached": True, "answer_html": row["answer_html"],
                "generated_at": row["generated_at"], "question": row["question"]})
 
-@app.post("/api/refresh_coach")
+@app.post("/api/refresh_coach", dependencies=[Depends(_llm_rate_limit)])
 async def api_refresh_coach(scope: str = Query("overview")):
     map_filter = None if scope == "overview" else scope
     loop = asyncio.get_event_loop()
@@ -2626,7 +2652,7 @@ def api_match_detail(match_id: str = Query(...)):
         "vs_avg":     avg_stats,
     })
 
-@app.get("/ask")
+@app.get("/ask", dependencies=[Depends(_llm_rate_limit)])
 def ask_get(
     q: str = Query(...),
     map: Optional[str] = Query(None),
@@ -2635,13 +2661,13 @@ def ask_get(
 ):
     return _ask(q, map, days, want_html=html)
 
-@app.post("/ask")
+@app.post("/ask", dependencies=[Depends(_llm_rate_limit)])
 def ask_post(body: dict):
     q = body.get("question") or body.get("q")
     if not q: raise HTTPException(400,"question required")
     return _ask(q, body.get("map"), int(body.get("days",30)), want_html=False)
 
-@app.get("/coach")
+@app.get("/coach", dependencies=[Depends(_llm_rate_limit)])
 def coach_page(
     q: Optional[str] = Query(None),
     map: Optional[str] = Query(None),
@@ -3050,9 +3076,8 @@ def delete_lineup(lineup_id: int):
 
 DRILLS_SYSTEM = """You are a blunt CS2 trainer. Find the 3 weakest areas from the stats and give one concrete drill each. Use imperative sentences — "Do X", "Practice Y". Respond ONLY with a JSON array, no prose, no markdown wrapper. Format: [{"area":"short label (3-5 words)","drill":"one or two imperative sentences — exactly what to do in practice","target":"one measurable success condition"}]."""
 
-@app.get("/api/drills")
+@app.get("/api/drills", dependencies=[Depends(_llm_rate_limit)])
 def api_drills(map: Optional[str] = Query(None), days: int = Query(30)):
-    import re as _re
     if not llm.available():
         return _j({"drills": [], "error": llm.not_configured_message()})
     conn = _db()
@@ -3281,7 +3306,7 @@ def _storyboard_commentary(map_name, round_num, side, won, moments):
         print(f"[storyboard] commentary error: {e}")
     return [""] * len(moments)
 
-@app.get("/api/round_review")
+@app.get("/api/round_review", dependencies=[Depends(_llm_rate_limit)])
 async def api_round_review(match_id: str, round: int = Query(...)):
     mid = int(match_id)
     conn = _db()
@@ -3598,169 +3623,6 @@ def api_round_coach(match_id: str, round: int = Query(...)):
         "narrative": narrative,
     })
 
-
-@app.get("/companion")
-def companion_page():
-    return FileResponse("/app/static/archive/v1/companion.html")
-
-@app.get("/api/companion_data")
-def api_companion_data(
-    map: Optional[str] = Query(None),
-    days: int = Query(30),
-):
-    map_filter = map if map and map != "any" else None
-    conn = _db()
-    try:
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(days=days)
-        mc = "" if not map_filter else " AND m.map=%(map)s"
-        params = {"days": days, "map": map_filter}
-
-        with conn.cursor() as c:
-            # KPIs
-            c.execute(f"""
-                SELECT
-                    COUNT(DISTINCT m.match_id) AS matches,
-                    SUM(pr.kills)  AS kills,
-                    SUM(pr.deaths) AS deaths,
-                    ROUND(100.0*COUNT(DISTINCT CASE WHEN m.won THEN m.match_id END)::numeric
-                          /NULLIF(COUNT(DISTINCT m.match_id),0),1) AS win_pct,
-                    ROUND(SUM(pr.kills)::numeric/NULLIF(SUM(pr.deaths),0),2) AS kd,
-                    ROUND(AVG(pr.damage),0) AS adr,
-                    ROUND(100.0*SUM(pr.headshots)::numeric/NULLIF(SUM(pr.kills),0),1) AS hs_pct
-                FROM matches m JOIN player_rounds pr USING(match_id)
-                WHERE m.played_at >= now() - (%(days)s || ' days')::interval {mc}
-            """, params)
-            kpis = dict(c.fetchone() or {})
-
-            # Coach briefs
-            c.execute("SELECT scope, answer_html, generated_at FROM coach_cache ORDER BY generated_at DESC")
-            coach_briefs = [dict(r) for r in c.fetchall()]
-
-            # Maps available
-            c.execute("SELECT DISTINCT map FROM matches ORDER BY map")
-            maps_available = [r["map"] for r in c.fetchall()]
-
-            # Grenade lineups — clustered by land zone
-            grenade_sql = """
-                SELECT m.map,
-                       ge.grenade_type,
-                       COUNT(*) AS count,
-                       AVG(ge.throw_x)::float AS throw_x,
-                       AVG(ge.throw_y)::float AS throw_y,
-                       AVG(ge.land_x)::float  AS land_x,
-                       AVG(ge.land_y)::float  AS land_y,
-                       ROUND(ge.land_x / 200) * 200 AS land_zone_x,
-                       ROUND(ge.land_y / 200) * 200 AS land_zone_y
-                FROM grenade_events ge
-                JOIN matches m USING(match_id)
-                WHERE ge.land_x IS NOT NULL
-                  AND ge.throw_x IS NOT NULL
-                  AND m.played_at >= now() - (%(days)s || ' days')::interval
-            """
-            if map_filter:
-                grenade_sql += " AND m.map = %(map)s"
-            grenade_sql += """
-                GROUP BY m.map, ge.grenade_type,
-                         ROUND(ge.land_x / 200) * 200,
-                         ROUND(ge.land_y / 200) * 200
-                HAVING COUNT(*) >= 2
-                ORDER BY m.map, ge.grenade_type, count DESC
-            """
-            c.execute(grenade_sql, params)
-            grenade_lineups = [dict(r) for r in c.fetchall()]
-
-            # Focus areas — top coaching signals
-            focus_areas: list = []
-            try:
-                c.execute(f"""
-                    SELECT
-                        ROUND(100.0 * SUM(CASE WHEN pr.opening_kill THEN 1 END)::numeric
-                              / NULLIF(SUM(CASE WHEN pr.opening_kill OR pr.opening_death THEN 1 END),0),1
-                        ) AS opening_win_pct,
-                        ROUND(100.0 * SUM(CASE WHEN pr.buy_type='force' AND NOT pr.round_won THEN 1 END)::numeric
-                              / NULLIF(SUM(CASE WHEN pr.buy_type='force' THEN 1 END),0),1
-                        ) AS bad_force_pct,
-                        ROUND(100.0 * SUM(CASE WHEN pr.buy_type='force' THEN 1 END)::numeric
-                              / NULLIF(COUNT(*),0),1
-                        ) AS force_rate,
-                        ROUND(100.0 * SUM(CASE WHEN pr.util_thrown > 0 THEN 1 END)::numeric
-                              / NULLIF(COUNT(*),0),1
-                        ) AS util_use_pct,
-                        ROUND(100.0 * SUM(CASE WHEN pr.high_damage_no_kill THEN 1 END)::numeric
-                              / NULLIF(COUNT(*),0),1
-                        ) AS spray_rate
-                    FROM player_rounds pr
-                    JOIN matches m USING(match_id)
-                    WHERE m.played_at >= now() - (%(days)s || ' days')::interval {mc}
-                """, params)
-                fa = dict(c.fetchone() or {})
-
-                c.execute(f"""
-                    SELECT
-                        ROUND(100.0 * SUM(CASE WHEN ke.headshot
-                              AND SQRT(POWER(ke.attacker_x-ke.victim_x,2)+POWER(ke.attacker_y-ke.victim_y,2)) > 1500
-                              THEN 1 END)::numeric
-                            / NULLIF(SUM(CASE WHEN
-                              SQRT(POWER(ke.attacker_x-ke.victim_x,2)+POWER(ke.attacker_y-ke.victim_y,2)) > 1500
-                              THEN 1 END),0),1
-                        ) AS hs_far_pct,
-                        SUM(CASE WHEN
-                            SQRT(POWER(ke.attacker_x-ke.victim_x,2)+POWER(ke.attacker_y-ke.victim_y,2)) > 1500
-                            THEN 1 END) AS far_kills
-                    FROM kill_events ke
-                    JOIN matches m USING(match_id)
-                    WHERE ke.is_victim = false
-                      AND ke.attacker_x IS NOT NULL AND ke.victim_x IS NOT NULL
-                      AND m.played_at >= now() - (%(days)s || ' days')::interval {mc}
-                """, params)
-                aim_fa = dict(c.fetchone() or {})
-
-                candidates: list = []
-                ow = fa.get("opening_win_pct")
-                if ow is not None:
-                    if float(ow) < 35:
-                        candidates.append(("rd", 45 - float(ow), "Win Opening Duels",
-                            f"Only {ow:.0f}% of opening duels go your way — seek spots where you hold the info advantage."))
-                    elif float(ow) < 45:
-                        candidates.append(("yw", 45 - float(ow), "Improve Opening Duels",
-                            f"Opening win rate is {ow:.0f}% — pre-aim common angles before committing to a peek."))
-
-                bf = fa.get("bad_force_pct"); fr = fa.get("force_rate")
-                if bf is not None and float(bf) > 65 and fr is not None and float(fr) > 15:
-                    candidates.append(("yw", float(bf) - 60, "Force-Buy Discipline",
-                        f"You lose {bf:.0f}% of your force rounds — consider saving when the econ math doesn't add up."))
-
-                util = fa.get("util_use_pct")
-                if util is not None and float(util) < 45:
-                    candidates.append(("ac", 45 - float(util), "Use Your Utility",
-                        f"Utility thrown in only {util:.0f}% of rounds — one smoke or flash can swing round control."))
-
-                spray = fa.get("spray_rate")
-                if spray is not None and float(spray) > 30:
-                    candidates.append(("yw", float(spray) - 20, "Convert High-Damage Hits",
-                        f"In {spray:.0f}% of rounds you deal 80+ dmg without a kill — tighten spray patterns to finish duels."))
-
-                hs_far = aim_fa.get("hs_far_pct"); fk = aim_fa.get("far_kills")
-                if hs_far is not None and float(hs_far) < 15 and (fk or 0) >= 10:
-                    candidates.append(("ac", 15 - float(hs_far), "Crosshair Placement at Range",
-                        f"HS% drops to {hs_far:.0f}% at long range — raise crosshair to head height before long duels."))
-
-                candidates.sort(key=lambda x: -x[1])
-                focus_areas = [{"color": it[0], "title": it[2], "tip": it[3]} for it in candidates[:3]]
-            except Exception:
-                pass
-
-    finally:
-        conn.close()
-
-    return _j({
-        "kpis":            kpis,
-        "coach_briefs":    coach_briefs,
-        "grenade_lineups": grenade_lineups,
-        "maps_available":  maps_available,
-        "focus_areas":     focus_areas,
-    })
 
 @app.get("/api/faceit_overview")
 def api_faceit_overview(days: int = Query(90)):
