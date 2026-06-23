@@ -49,6 +49,8 @@ services:
     volumes:
       - ./radars:/radars:ro
       - ./app/static:/app/static:ro
+      # Writable so the in-app Settings panel can persist config back to .env.
+      - ./.env:/app/.env
     ports:
       - "${APP_PORT:-5608}:5000"
     depends_on:

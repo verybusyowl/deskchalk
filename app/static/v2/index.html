@@ -18,14 +18,47 @@
         <i data-lucide="layout-dashboard"></i>
         <span>Overview</span>
       </button>
+
+      <div class="dc-rail-div"></div>
+
       <button class="dc-rail-btn" data-view="maps">
         <i data-lucide="map"></i>
         <span>Maps</span>
       </button>
+
+      <div class="dc-rail-div"></div>
+
+      <!-- External accounts — each appears only once it's configured. -->
+      <a class="dc-rail-btn" id="rail-faceit" href="#" target="_blank" rel="noopener" title="Your FACEIT profile" style="display:none">
+        <i data-lucide="user-round"></i>
+        <span>FACEIT</span>
+      </a>
+      <a class="dc-rail-btn" id="rail-account" href="#" target="_blank" rel="noopener" title="Your Steam profile" style="display:none">
+        <i data-lucide="gamepad-2"></i>
+        <span>Steam</span>
+      </a>
+      <button class="dc-rail-btn is-setup" id="rail-addacct" title="Connect FACEIT or matchmaking" style="display:none">
+        <i data-lucide="user-plus"></i>
+        <span>Connect</span>
+      </button>
+
+      <div class="dc-rail-div"></div>
+
+      <!-- Project links -->
+      <a class="dc-rail-btn" id="rail-github" href="https://github.com/verybusyowl/deskchalk" target="_blank" rel="noopener" title="Source on GitHub">
+        <i data-lucide="github"></i>
+        <span>GitHub</span>
+      </a>
+      <a class="dc-rail-btn is-coffee" id="rail-coffee" href="https://www.buymeacoffee.com/verybusyowl" target="_blank" rel="noopener" title="Buy me a coffee">
+        <i data-lucide="coffee"></i>
+        <span>Coffee</span>
+      </a>
     </div>
-    <button class="dc-rail-ask" id="ask-open-rail">
-      <i data-lucide="message-square-text"></i>
-      <span>Ask</span>
+
+    <!-- Settings: edit your .env from the app. Pinned to the bottom. -->
+    <button class="dc-rail-btn dc-rail-settings" id="rail-settings" title="Settings — edit your config">
+      <i data-lucide="settings"></i>
+      <span>Settings</span>
     </button>
   </nav>
 
@@ -95,6 +128,27 @@
       <button class="dc-send" id="ask-send" aria-label="Send">
         <i data-lucide="arrow-up"></i>
       </button>
+    </footer>
+  </aside>
+
+  <!-- Settings slide-over: edit a curated subset of .env from the app -->
+  <aside class="dc-slideover" id="settings-panel" aria-label="Settings">
+    <header class="dc-so-head">
+      <div style="display:flex;align-items:center;gap:10px">
+        <i data-lucide="settings" style="color:var(--mint)"></i>
+        <div>
+          <div style="font-family:var(--font-display);font-weight:700;font-size:var(--fs-md);color:var(--text-1)">Settings</div>
+          <div class="dc-label" style="color:var(--text-3)">Edits your .env — most changes apply on restart</div>
+        </div>
+      </div>
+      <button class="dc-icon-btn" id="settings-close" aria-label="Close">
+        <i data-lucide="x"></i>
+      </button>
+    </header>
+    <div class="dc-so-body" id="settings-body"></div>
+    <footer class="dc-so-foot">
+      <button class="dc-send" id="settings-save" style="width:auto;padding:0 18px;gap:8px;font-family:var(--font-display);font-weight:700">Save</button>
+      <span id="settings-status" class="dc-label" style="align-self:center;color:var(--text-3)"></span>
     </footer>
   </aside>
 

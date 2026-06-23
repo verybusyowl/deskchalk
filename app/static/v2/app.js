@@ -35,6 +35,29 @@ function esc(s) {
 
 function mapName(key) { return MAP_NAMES[key] || key.replace('de_',''); }
 
+// Point the persistent rail links at the live profile, once known.
+// Order in the rail: FACEIT → your account → GitHub → coffee. Account slots only
+// appear when configured; if neither is set we show a muted "add account" hint.
+function syncRailLinks(profile) {
+  const p = profile || {};
+  const fa = document.getElementById('rail-faceit');
+  if (fa) {
+    if (p.faceit_url) { fa.href = p.faceit_url; fa.title = 'FACEIT: ' + (p.faceit_nickname || 'profile'); fa.style.display = ''; }
+    else fa.style.display = 'none';
+  }
+  const ac = document.getElementById('rail-account');
+  if (ac) {
+    if (p.steam_url) { ac.href = p.steam_url; ac.title = 'Steam: ' + (p.steam_persona || p.name || 'account'); ac.style.display = ''; }
+    else ac.style.display = 'none';
+  }
+  const add = document.getElementById('rail-addacct');
+  if (add) add.style.display = (p.faceit_url || p.steam_url) ? 'none' : '';
+  const gh = document.getElementById('rail-github');
+  if (gh && p.links?.github) gh.href = p.links.github;
+  const co = document.getElementById('rail-coffee');
+  if (co && p.links?.buymeacoffee) co.href = p.links.buymeacoffee;
+}
+
 function metricUnit(metric) {
   if (!metric) return '';
   for (const [k, v] of Object.entries(METRIC_UNIT)) {
@@ -257,6 +280,7 @@ async function loadOverview() {
 
     S.cache.overview = overview;
     S.cache.profile = profile;
+    syncRailLinks(profile);
 
     const kpis = overview.kpis || {};
     const form = overview.recent_form || [];
@@ -339,8 +363,12 @@ async function loadOverview() {
       <div class="dc-identity">
         <div style="display:flex;align-items:center;gap:14px;min-width:0">
           ${avatarHtml}
-          <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
-            <span style="font-family:var(--font-display);font-weight:700;font-size:var(--fs-lg);color:var(--text-1)">${esc(profile.name || 'Player')}</span>
+          <div style="display:flex;flex-direction:column;gap:7px;min-width:0">
+            <span style="font-family:var(--font-display);font-weight:700;font-size:var(--fs-lg);color:var(--text-1)">${
+              profile.faceit_url
+                ? `<a class="dc-name-link" href="${esc(profile.faceit_url)}" target="_blank" rel="noopener">${esc(profile.name || 'Player')}</a>`
+                : esc(profile.name || 'Player')
+            }</span>
             <div style="display:flex;align-items:center;gap:8px">
               ${levelBadge(level, 'sm')}
               <span class="dc-label" style="color:var(--text-3)">${esc(profile.role || 'Solo queue')}</span>
@@ -900,6 +928,88 @@ async function sendAsk(question) {
   renderAskBody();
 }
 
+// ── SETTINGS (.env editor) ─────────────────────────────────────────
+// Edits a curated subset of .env from the app. Secrets are write-only: the
+// server reports only whether each is set; a blank field leaves it unchanged.
+function openSettings() {
+  document.getElementById('ask-scrim').classList.add('is-open');
+  document.getElementById('settings-panel').classList.add('is-open');
+  loadSettings();
+}
+function closeSettings() {
+  document.getElementById('ask-scrim').classList.remove('is-open');
+  document.getElementById('settings-panel').classList.remove('is-open');
+}
+
+async function loadSettings() {
+  const body = document.getElementById('settings-body');
+  body.innerHTML = '<div class="dc-label" style="color:var(--text-4)">Loading…</div>';
+  let d;
+  try { d = await fetchJSON('/api/env'); }
+  catch (e) { body.innerHTML = '<div class="dc-set-note">Couldn\'t load config.</div>'; return; }
+
+  const groups = {};
+  d.fields.forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
+
+  let html = '';
+  if (!d.editable) {
+    html += `<div class="dc-set-note">Editing is disabled over a proxy. ${d.needs_token
+      ? 'Supply your admin token (open the app locally to edit without one).'
+      : 'Open the app directly (localhost), or set <code>ADMIN_TOKEN</code> in .env.'}</div>`;
+  } else if (!d.writable) {
+    html += `<div class="dc-set-note">.env isn't writable in the container. Add the <code>./.env:/app/.env</code> mount in docker-compose, then restart.</div>`;
+  }
+  const disabled = (!d.editable || !d.writable) ? 'disabled' : '';
+
+  for (const [g, fields] of Object.entries(groups)) {
+    html += `<div class="dc-set-group"><div class="dc-set-grouptitle">${esc(g)}</div>`;
+    fields.forEach(f => {
+      const v = d.values[f.key];
+      const set = f.secret && v && v.set;
+      const val = f.secret ? '' : esc(v || '');
+      const ph = f.secret ? (set ? '•••••••• (set — blank keeps it)' : 'not set') : '';
+      html += `<label class="dc-set-field">
+        <span class="dc-set-label">${esc(f.label)}</span>
+        <input class="dc-input dc-set-input" data-key="${f.key}" data-secret="${f.secret ? 1 : 0}"
+          type="${f.secret ? 'password' : 'text'}" value="${val}" placeholder="${ph}"
+          autocomplete="off" spellcheck="false" ${disabled}>
+      </label>`;
+    });
+    html += `</div>`;
+  }
+  body.innerHTML = html;
+  document.getElementById('settings-status').textContent = '';
+  lucide.createIcons();
+}
+
+async function saveSettings() {
+  const status = document.getElementById('settings-status');
+  const updates = {};
+  document.querySelectorAll('#settings-body .dc-set-input').forEach(i => {
+    if (i.dataset.secret === '1' && i.value === '') return; // blank secret = unchanged
+    updates[i.dataset.key] = i.value;
+  });
+  status.style.color = 'var(--text-3)';
+  status.textContent = 'Saving…';
+  try {
+    const res = await fetch('/api/env', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({updates}),
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || ('HTTP ' + res.status)); }
+    const d = await res.json();
+    status.style.color = 'var(--mint)';
+    status.textContent = d.restart_required
+      ? 'Saved — run "docker compose up -d" to apply'
+      : 'Saved.';
+    // Name/links may have changed — refresh the rail.
+    fetchJSON('/api/player_profile').then(syncRailLinks).catch(() => {});
+  } catch (e) {
+    status.style.color = 'var(--orange)';
+    status.textContent = 'Error: ' + e.message;
+  }
+}
+
 // ── TEAM & ENEMY CONTEXT ───────────────────────────────────────────
 // Your output vs your own team, opponent strength, and trade involvement.
 // Backed by round_player_stats (all 10 players), populated on demos parsed
@@ -1164,12 +1274,18 @@ function init() {
   });
   document.getElementById('logo-link')?.addEventListener('click', e => { e.preventDefault(); setView('overview'); });
 
-  // Ask slide-over
-  ['ask-open-rail','ask-open-top','ask-open-bot'].forEach(id => {
+  // Ask slide-over (rail trigger removed — desktop opens it from the page header)
+  ['ask-open-top','ask-open-bot'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', openAsk);
   });
   document.getElementById('ask-close')?.addEventListener('click', closeAsk);
-  document.getElementById('ask-scrim')?.addEventListener('click', closeAsk);
+  document.getElementById('ask-scrim')?.addEventListener('click', () => { closeAsk(); closeSettings(); });
+
+  // Settings slide-over (.env editor) — opened from the rail, or the "Connect" hint
+  document.getElementById('rail-settings')?.addEventListener('click', openSettings);
+  document.getElementById('rail-addacct')?.addEventListener('click', openSettings);
+  document.getElementById('settings-close')?.addEventListener('click', closeSettings);
+  document.getElementById('settings-save')?.addEventListener('click', saveSettings);
   document.getElementById('ask-send')?.addEventListener('click', () => sendAsk(document.getElementById('ask-input')?.value));
   document.getElementById('ask-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') sendAsk(e.target.value); });
   document.getElementById('ask-suggest')?.querySelectorAll('.dc-chip').forEach(c => {
@@ -1178,6 +1294,10 @@ function init() {
 
   // Init Lucide icons already in the static shell
   lucide.createIcons();
+
+  // Populate the rail's account + project links up-front, independent of the
+  // overview load, so they appear immediately (even on the first-run setup screen).
+  fetchJSON('/api/player_profile').then(syncRailLinks).catch(() => syncRailLinks(null));
 
   // First-run gate: if the install isn't configured yet, guide the user instead
   // of loading empty dashboards. Falls through to the normal overview once ready.

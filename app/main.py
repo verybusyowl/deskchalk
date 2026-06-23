@@ -55,6 +55,98 @@ app = FastAPI()
 SESSION_SECRET = os.environ.get("SESSION_SECRET") or secrets.token_urlsafe(32)
 app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
+# ── Project links + identity ────────────────────────────────────────────────────
+# The repo and "buy me a coffee" links shown in the UI. Repo is fixed; the tip jar
+# and repo slug are overridable so a fork can point them at its own.
+GITHUB_REPO = os.environ.get("GITHUB_REPO", "verybusyowl/deskchalk")
+GITHUB_URL  = f"https://github.com/{GITHUB_REPO}"
+BUYMEACOFFEE_URL = os.environ.get("BUYMEACOFFEE_URL", "https://www.buymeacoffee.com/verybusyowl")
+
+def _display_name() -> str:
+    """Primary player name. Precedence follows the order data sources appear in
+    .env: FACEIT (source 1) wins, then the Steam persona, then a generic fallback."""
+    fn = (os.environ.get("FACEIT_NICKNAME") or "").strip()
+    if fn:
+        return fn
+    try:
+        return _fetch_steam_profile().get("personaname") or "Player"
+    except Exception:
+        return "Player"
+
+def _faceit_url() -> Optional[str]:
+    fn = (os.environ.get("FACEIT_NICKNAME") or "").strip()
+    return f"https://www.faceit.com/en/players/{fn}" if fn else None
+
+# Cached GitHub repo stats (stars + latest release) for the landing page, so each
+# visitor doesn't hit GitHub's unauthenticated rate limit and the page stays fast.
+_GH_CACHE: dict = {"at": 0.0, "data": None}
+
+# ── In-app config editor (.env) ───────────────────────────────────────────────
+# The Settings panel edits a CURATED subset of .env from the browser. The file is
+# bind-mounted writable into the container (see docker-compose: ./.env:/app/.env).
+# Security: this app's auth is a stub, so writing secrets must NOT be reachable
+# from the public internet. `_env_edit_allowed` blocks proxied requests unless an
+# ADMIN_TOKEN is set and supplied — direct localhost use just works.
+ENV_PATH = os.environ.get("ENV_FILE_PATH", "/app/.env")
+ENV_FIELDS = [
+    {"key": "FACEIT_NICKNAME",     "label": "FACEIT nickname",        "group": "FACEIT",              "secret": False},
+    {"key": "FACEIT_API_KEY",      "label": "FACEIT API key",         "group": "FACEIT",              "secret": True},
+    {"key": "STEAM_ID64",          "label": "Steam ID64",             "group": "Matchmaking (Steam)", "secret": False},
+    {"key": "STEAM_API_KEY",       "label": "Steam API key",          "group": "Matchmaking (Steam)", "secret": True},
+    {"key": "MATCH_AUTH_CODE",     "label": "Match auth code",        "group": "Matchmaking (Steam)", "secret": True},
+    {"key": "LLM_PROVIDER",        "label": "AI provider",            "group": "AI",                  "secret": False},
+    {"key": "ANTHROPIC_API_KEY",   "label": "Anthropic API key",      "group": "AI",                  "secret": True},
+    {"key": "LLM_API_KEY",         "label": "LLM API key",            "group": "AI",                  "secret": True},
+    {"key": "LLM_BASE_URL",        "label": "LLM base URL",           "group": "AI",                  "secret": False},
+    {"key": "LLM_MODEL",           "label": "LLM model",              "group": "AI",                  "secret": False},
+    {"key": "DISCORD_WEBHOOK_URL", "label": "Discord webhook",        "group": "Links",               "secret": True},
+    {"key": "GITHUB_REPO",         "label": "GitHub repo (owner/name)", "group": "Links",             "secret": False},
+    {"key": "BUYMEACOFFEE_URL",    "label": "Buy me a coffee URL",    "group": "Links",               "secret": False},
+]
+# Keys whose value is re-read per request, so a save applies live without a restart.
+# Everything else (API keys, poller/worker vars, import-time constants) needs one.
+ENV_LIVE_KEYS = {"FACEIT_NICKNAME"}
+
+def _env_edit_allowed(request: Request) -> bool:
+    tok = os.environ.get("ADMIN_TOKEN", "").strip()
+    if tok:
+        return request.headers.get("x-admin-token", "") == tok
+    # No admin token configured: only allow DIRECT (non-proxied) requests, so a
+    # reverse proxy can't be used to write secrets over the internet.
+    return not (request.headers.get("x-forwarded-for") or request.headers.get("forwarded"))
+
+def _env_read_file() -> dict:
+    vals = {}
+    try:
+        for ln in Path(ENV_PATH).read_text().splitlines():
+            m = _re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$", ln)
+            if m:
+                vals[m.group(1)] = m.group(2)
+    except Exception:
+        pass
+    return vals
+
+def _env_write(updates: dict) -> None:
+    """Update KEY=value lines in .env in place, preserving comments and order;
+    append any keys not already present."""
+    try:
+        lines = Path(ENV_PATH).read_text().splitlines()
+    except Exception:
+        lines = []
+    seen, out = set(), []
+    for ln in lines:
+        m = _re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*=", ln)
+        if m and m.group(1) in updates:
+            k = m.group(1)
+            out.append(f"{k}={updates[k]}")
+            seen.add(k)
+        else:
+            out.append(ln)
+    for k, v in updates.items():
+        if k not in seen:
+            out.append(f"{k}={v}")
+    Path(ENV_PATH).write_text("\n".join(out) + "\n")
+
 # ── AI endpoint abuse guard ────────────────────────────────────────────────────
 # /ask, /api/drills, fundamentals, round_review and the refresh routes each spend
 # real tokens on the owner's AI key. If the app is reachable beyond localhost an
@@ -1835,10 +1927,19 @@ def api_player_profile():
 
     steam = _fetch_steam_profile()
     return _j({
-        "name":        steam.get("personaname", "Player"),
-        "avatar_url":  steam.get("avatarfull", ""),
-        "role":        role,
-        "role_detail": role_detail,
+        # name precedence: FACEIT nickname (data source 1) first, then Steam persona
+        "name":            _display_name(),
+        "faceit_nickname": (os.environ.get("FACEIT_NICKNAME") or "").strip() or None,
+        "faceit_url":      _faceit_url(),
+        "steam_persona":   (steam.get("personaname") or "").strip() or None,
+        "steam_url":       (steam.get("profileurl") or "").strip() or None,
+        "avatar_url":      steam.get("avatarfull", ""),
+        "role":            role,
+        "role_detail":     role_detail,
+        "links": {
+            "github":       GITHUB_URL,
+            "buymeacoffee": BUYMEACOFFEE_URL,
+        },
     })
 
 
@@ -2305,7 +2406,7 @@ def app_dashboard(request: Request):
 
 @app.post("/auth/steam/stub")
 def auth_steam_stub(request: Request):
-    request.session["user"] = {"name": "Player", "stub": True}
+    request.session["user"] = {"name": _display_name(), "stub": True}
     return RedirectResponse("/app", status_code=302)
 
 @app.get("/auth/logout")
@@ -2682,6 +2783,56 @@ def coach_page(
 def health():
     return {"status":"ok","model":MODEL,"api_key_set":bool(API_KEY),"ai_configured":llm.available(),"provider":llm.PROVIDER}
 
+@app.get("/api/env")
+def api_env_get(request: Request):
+    """Curated config for the Settings panel. Secret values are NEVER returned —
+    only whether each is set — so the page can't leak keys."""
+    filevals = _env_read_file()
+    values = {}
+    for f in ENV_FIELDS:
+        k = f["key"]
+        v = filevals.get(k, os.environ.get(k, ""))
+        values[k] = {"set": bool(v)} if f["secret"] else v
+    return _j({
+        "fields":      ENV_FIELDS,
+        "values":      values,
+        "editable":    _env_edit_allowed(request),
+        "writable":    os.access(ENV_PATH, os.W_OK),
+        "needs_token": bool(os.environ.get("ADMIN_TOKEN", "").strip()),
+    })
+
+@app.post("/api/env")
+async def api_env_post(request: Request):
+    if not _env_edit_allowed(request):
+        raise HTTPException(403, "Config editing is disabled for remote/proxied requests. "
+                                 "Open the app locally, or set ADMIN_TOKEN and supply it.")
+    if not os.access(ENV_PATH, os.W_OK):
+        raise HTTPException(409, f"{ENV_PATH} is not writable inside the container. Add a writable "
+                                 "bind mount for .env in docker-compose, then restart the app.")
+    body = await request.json()
+    incoming = body.get("updates") or {}
+    updates = {}
+    for f in ENV_FIELDS:
+        k = f["key"]
+        if k not in incoming:
+            continue
+        val = ("" if incoming[k] is None else str(incoming[k])).strip()
+        if f["secret"] and val == "":
+            continue  # blank secret field = leave the existing value untouched
+        if "\n" in val or "\r" in val:
+            raise HTTPException(400, f"Invalid value for {k}")
+        updates[k] = val
+    if not updates:
+        return _j({"saved": [], "restart_required": False})
+    _env_write(updates)
+    # Apply live to this process so per-request reads (e.g. the display name) update
+    # immediately; other containers and import-time constants still need a restart.
+    for k, v in updates.items():
+        os.environ[k] = v
+    restart = any(k not in ENV_LIVE_KEYS for k in updates)
+    return _j({"saved": sorted(updates), "restart_required": restart})
+
+
 @app.get("/api/setup_state")
 def api_setup_state():
     """What a fresh install still needs — drives the first-run setup screen so a
@@ -2708,6 +2859,35 @@ def api_setup_state():
         # ready once the coach can talk AND there's a source feeding it
         "ready":    ai and (faceit or steam or has_data),
     }
+
+@app.get("/api/github_stats")
+def api_github_stats():
+    """Live repo stars + latest release for the landing page. Cached 1h and fetched
+    server-side so visitors don't hit GitHub's per-IP rate limit. All fields may be
+    null if GitHub is unreachable — the UI falls back to its static defaults."""
+    now = time.time()
+    cached = _GH_CACHE.get("data")
+    if cached and now - _GH_CACHE["at"] < 3600:
+        return cached
+    out = {"stars": None, "version": None, "url": GITHUB_URL}
+    hdrs = {"User-Agent": "deskchalk", "Accept": "application/vnd.github+json"}
+    try:
+        req = _urllib.Request(f"https://api.github.com/repos/{GITHUB_REPO}", headers=hdrs)
+        with _urllib.urlopen(req, timeout=6) as r:
+            d = json.load(r)
+        out["stars"] = d.get("stargazers_count")
+        out["url"] = d.get("html_url") or out["url"]
+    except Exception:
+        pass
+    try:
+        req = _urllib.Request(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest", headers=hdrs)
+        with _urllib.urlopen(req, timeout=6) as r:
+            d = json.load(r)
+        out["version"] = d.get("tag_name")
+    except Exception:
+        pass
+    _GH_CACHE.update(at=now, data=out)
+    return out
 
 # ── calibration verification ────────────────────────────────────────────────────
 

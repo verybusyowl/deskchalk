@@ -30,7 +30,7 @@
       <div class="lp-nav-cta">
         <a class="btn btn-ghost btn-sm" href="https://github.com/verybusyowl/deskchalk">
           <span class="btn-ico"><i data-lucide="github"></i></span>
-          <span style="font-variant-numeric:tabular-nums">2.4k</span>
+          <span id="gh-stars" style="font-variant-numeric:tabular-nums">—</span>
         </a>
         <form method="POST" action="/auth/steam/stub" style="margin:0">
           <button type="submit" class="btn btn-secondary btn-sm">Log in</button>
@@ -45,7 +45,7 @@
     <div>
       <span class="badge">
         <span class="badge-dot"></span>
-        <span style="color:var(--success)">AGPL-3.0</span>&nbsp;· self-hosted · v0.9
+        <span style="color:var(--success)">AGPL-3.0</span>&nbsp;· self-hosted · <span id="dc-version">v0.9</span>
       </span>
       <h1>
         The CS2 coach that<br>tells you the <span class="accent">truth.</span>
@@ -61,7 +61,7 @@
         </a>
         <a class="btn btn-secondary btn-lg" href="https://github.com/verybusyowl/deskchalk">
           <span class="btn-ico"><i data-lucide="star"></i></span>
-          Star on GitHub&nbsp;·&nbsp;<span style="color:var(--accent);font-variant-numeric:tabular-nums">2,438</span>
+          Star on GitHub&nbsp;·&nbsp;<span id="gh-stars-hero" style="color:var(--accent);font-variant-numeric:tabular-nums">—</span>
         </a>
       </div>
       <div class="lp-hero-meta">
@@ -367,6 +367,27 @@
 <script>
   // Upgrade <i data-lucide> placeholders to SVGs; .lp-ico / explicit sizes handle dimensions.
   if (window.lucide) window.lucide.createIcons({ attrs: { 'stroke-width': 1.5 } });
+
+  // Live repo stats — stars + latest release, fetched (and cached) by the backend.
+  // Leaves the static placeholders in place if the call fails.
+  (function () {
+    const compact = n =>
+      n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k'
+                : String(n);
+    fetch('/api/github_stats').then(r => r.ok ? r.json() : null).then(d => {
+      if (!d) return;
+      if (typeof d.stars === 'number') {
+        const nav = document.getElementById('gh-stars');
+        const hero = document.getElementById('gh-stars-hero');
+        if (nav)  nav.textContent  = compact(d.stars);
+        if (hero) hero.textContent = d.stars.toLocaleString();
+      }
+      if (d.version) {
+        const v = document.getElementById('dc-version');
+        if (v) v.textContent = d.version.startsWith('v') ? d.version : 'v' + d.version;
+      }
+    }).catch(() => {});
+  })();
 </script>
 </body>
 </html>
